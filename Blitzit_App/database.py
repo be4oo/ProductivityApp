@@ -1,6 +1,6 @@
 # Blitzit_App/database.py
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 import random
 
 DB_PATH = 'data/tasks.db'
@@ -14,7 +14,12 @@ def get_db_connection():
 def migrate_database():
     conn = get_db_connection(); cursor = conn.cursor(); print("Running all database migrations...")
     cursor.execute("PRAGMA table_info(tasks)"); columns = [row['name'] for row in cursor.fetchall()]
-    if 'completed_at' not in columns: cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP")
+    if 'completed_at' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP")
+    if 'due_date' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")
+    if 'recurrence' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN recurrence TEXT")
     cursor.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, color TEXT)")
     # *** NEW: Add color column to projects table if it doesn't exist ***
     cursor.execute("PRAGMA table_info(projects)")
@@ -70,18 +75,43 @@ def get_tasks_for_project(project_id):
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE project_id = ? AND status != "archived" ORDER BY priority ASC', (project_id,)).fetchall(); conn.close(); return tasks
 def get_all_tasks_from_all_projects():
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE status != "archived" ORDER BY project_id, priority ASC').fetchall(); conn.close(); return tasks
-def add_task(title, notes, project_id, column, est_time, task_type, task_priority):
-    conn = get_db_connection(); max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
-    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1)); conn.commit(); conn.close()
-def update_task_details(task_id, title, notes, est_time, task_type, task_priority):
-    conn = get_db_connection(); conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ? WHERE id = ?',
-                 (title, notes, est_time, task_type, task_priority, task_id)); conn.commit(); conn.close()
+def add_task(title, notes, project_id, column, est_time, task_type, task_priority, due_date=None, recurrence=None):
+    conn = get_db_connection()
+    max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
+    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority, due_date, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1, due_date, recurrence))
+    conn.commit(); conn.close()
+def update_task_details(task_id, title, notes, est_time, task_type, task_priority, due_date=None, recurrence=None):
+    conn = get_db_connection()
+    conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ?, due_date = ?, recurrence = ? WHERE id = ?',
+                 (title, notes, est_time, task_type, task_priority, due_date, recurrence, task_id))
+    conn.commit(); conn.close()
 def update_task_column(task_id, new_column):
     conn = get_db_connection()
-    if new_column == "Done": conn.execute('UPDATE tasks SET column = ?, completed_at = ? WHERE id = ?', (new_column, datetime.now(), task_id))
-    else: conn.execute('UPDATE tasks SET column = ?, completed_at = NULL, priority = 999 WHERE id = ?', (new_column, task_id))
-    conn.commit(); conn.close()
+    if new_column == "Done":
+        cursor = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))
+        task = cursor.fetchone()
+        conn.execute('UPDATE tasks SET column = ?, completed_at = ? WHERE id = ?', (new_column, datetime.now(), task_id))
+        conn.commit()
+        if task and task['recurrence']:
+            next_due = None
+            if task['due_date']:
+                try:
+                    dt = datetime.fromisoformat(task['due_date'])
+                except ValueError:
+                    dt = None
+                if dt:
+                    if task['recurrence'] == 'Daily':
+                        next_due = (dt + timedelta(days=1)).isoformat()
+                    elif task['recurrence'] == 'Weekly':
+                        next_due = (dt + timedelta(weeks=1)).isoformat()
+                    elif task['recurrence'] == 'Monthly':
+                        next_due = (dt + timedelta(days=30)).isoformat()
+            add_task(task['title'], task['notes'], task['project_id'], 'Backlog', task['estimated_time'], task['task_type'], task['task_priority'], next_due, task['recurrence'])
+    else:
+        conn.execute('UPDATE tasks SET column = ?, completed_at = NULL, priority = 999 WHERE id = ?', (new_column, task_id))
+        conn.commit()
+    conn.close()
 def update_task_order(ordered_task_ids):
     conn = get_db_connection()
     with conn:
