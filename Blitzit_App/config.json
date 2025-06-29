@@ -1,4 +1,5 @@
-
-
+{
     "theme": "dark",
-    "show_welcome": false
+    "show_welcome": true,
+    "enable_task_reminders": true
+}
