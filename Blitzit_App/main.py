@@ -17,6 +17,7 @@ from widgets.eisenhower_widget import EisenhowerMatrix, QuadrantWidget
 from widgets.floating_widget import FloatingWidget
 from widgets.today_list_widget import TodayListWidget
 from widgets.archive_view_widget import ArchivedTasksWidget # Import new widget
+from widgets.welcome_dialog import WelcomeDialog # Import from main/feature/column-task-count
 
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
 CONFIG_FILE = "config.json"
