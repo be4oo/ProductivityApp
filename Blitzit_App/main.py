@@ -1,10 +1,14 @@
 # Blitzit_App/main.py
 import sys, os, json
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
-                             QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
+from PyQt6.QtWidgets import (
+    QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+    QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog,
+    QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog,
+    QSystemTrayIcon
+)
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
+from PyQt6.QtGui import QIcon, QAction, QFontDatabase  # <--- Import QFontDatabase
+from datetime import datetime, timedelta
 import qtawesome as qta
 
 import database
@@ -16,12 +20,13 @@ from widgets.column_widget import DropColumn
 from widgets.eisenhower_widget import EisenhowerMatrix, QuadrantWidget
 from widgets.floating_widget import FloatingWidget
 from widgets.today_list_widget import TodayListWidget
+from widgets.welcome_dialog import WelcomeDialog
 
 from widgets.archive_view_widget import ArchivedTasksWidget # Import new widget
 from widgets.welcome_dialog import WelcomeDialog # Import from main/feature/column-task-count
 
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
-CONFIG_FILE = "config.json"
+CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
 def load_config():
     """Loads the configuration file (e.g., for theme choice)."""
@@ -188,13 +193,35 @@ class BlitzitApp(QMainWindow):
         self.load_projects()
         self.show_welcome_if_needed()
 
-    def show_welcome_if_needed(self):
-        config = load_config()
-        if config.get("show_welcome", True):
-            dialog = WelcomeDialog(self)
-            if dialog.exec() and dialog.do_not_show_again():
-                config["show_welcome"] = False
-                save_config(config)
+
+        # --- Task Reminder Notifications ---
+        self.tray = QSystemTrayIcon(QIcon("assets/icon.png"), self)
+        self.tray.show()
+        self.notified_task_ids = set()
+        self.notification_timer = QTimer(self)
+        self.notification_timer.timeout.connect(self.check_due_tasks)
+        self.notification_timer.start(60_000)
+
+
+    def check_due_tasks(self):
+        tasks = database.get_all_tasks_from_all_projects()
+        now = datetime.now()
+        soon = now + timedelta(hours=1)
+        for task in tasks:
+            if task["id"] in self.notified_task_ids:
+                continue
+            if not task["due_date"] or task["column"] == "Done":
+                continue
+            try:
+                due_dt = datetime.fromisoformat(task["due_date"])
+            except ValueError:
+                continue
+            if now > due_dt or due_dt <= soon:
+                title = "Task Overdue" if now > due_dt else "Task Due Soon"
+                message = f"{task['title']} due {due_dt.strftime('%Y-%m-%d %H:%M')}"
+                self.tray.showMessage(title, message)
+                self.notified_task_ids.add(task["id"])
+
 
     def change_theme(self, theme_name):
         """Loads and applies a new theme stylesheet and saves the choice."""
@@ -462,10 +489,12 @@ class BlitzitApp(QMainWindow):
 
     def open_add_task_dialog(self):
         if self.current_project_id is None or self.current_project_id == -1: QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task."); return
-        dialog = AddTaskDialog(self);
+        dialog = AddTaskDialog(self)
         if dialog.exec():
-            task_data = dialog.get_task_data();
-            if task_data["title"]: database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"]); self.refresh_all_views()
+            task_data = dialog.get_task_data()
+            if task_data["title"]:
+                database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"])
+                self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
         task_data_source = database.get_tasks_for_project(self.current_project_id) if self.current_project_id != -1 else database.get_all_tasks_from_all_projects()
@@ -474,7 +503,9 @@ class BlitzitApp(QMainWindow):
         dialog = EditTaskDialog(task_data, self)
         if dialog.exec():
             updated_data = dialog.get_updated_data()
-            if updated_data["title"]: database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"]); self.refresh_all_views()
+            if updated_data["title"]:
+                database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"])
+                self.refresh_all_views()
     
     def open_reporting_dialog(self):
         all_tasks_stats = database.get_report_stats(); dialog = ReportingDialog(all_tasks_stats, self); dialog.exec()

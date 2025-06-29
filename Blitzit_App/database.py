@@ -14,7 +14,10 @@ def get_db_connection():
 def migrate_database():
     conn = get_db_connection(); cursor = conn.cursor(); print("Running all database migrations...")
     cursor.execute("PRAGMA table_info(tasks)"); columns = [row['name'] for row in cursor.fetchall()]
-    if 'completed_at' not in columns: cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP")
+    if 'completed_at' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP")
+    if 'due_date' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN due_date TEXT")
     cursor.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, color TEXT)")
     # *** NEW: Add color column to projects table if it doesn't exist ***
     cursor.execute("PRAGMA table_info(projects)")
@@ -73,13 +76,17 @@ def get_tasks_for_project(project_id):
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE project_id = ? AND status != "archived" ORDER BY priority ASC', (project_id,)).fetchall(); conn.close(); return tasks
 def get_all_tasks_from_all_projects():
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE status != "archived" ORDER BY project_id, priority ASC').fetchall(); conn.close(); return tasks
-def add_task(title, notes, project_id, column, est_time, task_type, task_priority):
-    conn = get_db_connection(); max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
-    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1)); conn.commit(); conn.close()
-def update_task_details(task_id, title, notes, est_time, task_type, task_priority):
-    conn = get_db_connection(); conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ? WHERE id = ?',
-                 (title, notes, est_time, task_type, task_priority, task_id)); conn.commit(); conn.close()
+def add_task(title, notes, project_id, column, est_time, task_type, task_priority, due_date=None):
+    conn = get_db_connection()
+    max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
+    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1, due_date))
+    conn.commit(); conn.close()
+def update_task_details(task_id, title, notes, est_time, task_type, task_priority, due_date=None):
+    conn = get_db_connection()
+    conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ?, due_date = ? WHERE id = ?',
+                 (title, notes, est_time, task_type, task_priority, due_date, task_id))
+    conn.commit(); conn.close()
 def update_task_column(task_id, new_column):
     conn = get_db_connection()
     if new_column == "Done": conn.execute('UPDATE tasks SET column = ?, completed_at = ? WHERE id = ?', (new_column, datetime.now(), task_id))
