@@ -28,7 +28,7 @@ def parse_time_string_to_minutes(time_str: str) -> int:
 
 class TaskWidget(QFrame):
     task_completed = pyqtSignal(int); task_deleted = pyqtSignal(int); task_edit_requested = pyqtSignal(int)
-    focus_requested = pyqtSignal(int); task_reopened = pyqtSignal(int)
+    focus_requested = pyqtSignal(int); task_reopened = pyqtSignal(int); task_archived = pyqtSignal(int) # New signal
 
     def __init__(self, task):
         super().__init__(); self.task_id = task['id']; self.setObjectName("TaskWidget"); self.column_name = task['column']
@@ -56,17 +56,31 @@ class TaskWidget(QFrame):
             except ValueError:
                 due_label_text = task['due_date']
         due_date_label = QLabel(f"Due: {due_label_text}" if due_label_text else "")
+
         recur_label = QLabel(task['recurrence'] or "")
         est_time_label.setObjectName("TimeEstLabel"); act_time_label.setObjectName("TimeActLabel")
         time_layout.addWidget(est_time_label); time_layout.addStretch(); time_layout.addWidget(act_time_label); time_layout.addWidget(due_date_label); time_layout.addWidget(recur_label)
+
         main_layout.addLayout(time_layout)
         button_layout = QHBoxLayout(); button_layout.setContentsMargins(0, 8, 0, 0)
         if self.column_name == "Done":
             self.setProperty("class", "done-task")
-            reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open"); delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
-            reopen_btn.setObjectName("TaskActionButton"); delete_btn.setObjectName("TaskActionButton")
-            reopen_btn.clicked.connect(lambda: self.task_reopened.emit(self.task_id)); delete_btn.clicked.connect(lambda: self.task_deleted.emit(self.task_id))
-            button_layout.addStretch(); button_layout.addWidget(reopen_btn); button_layout.addWidget(delete_btn)
+            reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open")
+            archive_btn = QPushButton(qta.icon('fa5s.archive'), " Archive") # New Archive button
+            delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
+
+            reopen_btn.setObjectName("TaskActionButton")
+            archive_btn.setObjectName("TaskActionButton") # Set object name
+            delete_btn.setObjectName("TaskActionButton")
+
+            reopen_btn.clicked.connect(lambda: self.task_reopened.emit(self.task_id))
+            archive_btn.clicked.connect(lambda: self.task_archived.emit(self.task_id)) # Connect new signal
+            delete_btn.clicked.connect(lambda: self.task_deleted.emit(self.task_id))
+
+            button_layout.addStretch()
+            button_layout.addWidget(reopen_btn)
+            button_layout.addWidget(archive_btn) # Add button to layout
+            button_layout.addWidget(delete_btn)
         else:
             focus_btn = QPushButton(qta.icon('fa5s.play-circle'), ""); edit_btn = QPushButton(qta.icon('fa5s.pencil-alt'), "")
             done_btn = QPushButton(qta.icon('fa5s.check-circle'), " Done")
@@ -92,17 +106,21 @@ class AddTaskDialog(QDialog):
         self.time_input = QLineEdit(); self.time_input.setPlaceholderText("e.g., 1h 30m or 45m")
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"])
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"])
+
         self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"])
         self.due_checkbox = QCheckBox("Due Date")
         self.due_date_input = QDateTimeEdit(QDateTime.currentDateTime()); self.due_date_input.setDisplayFormat("yyyy-MM-dd HH:mm"); self.due_date_input.setCalendarPopup(True); self.due_date_input.setEnabled(False)
         self.due_checkbox.stateChanged.connect(lambda: self.due_date_input.setEnabled(self.due_checkbox.isChecked()))
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input)
+
         form_layout.addRow("Priority:", self.priority_input); form_layout.addRow("Repeats:", self.recur_input); form_layout.addRow(self.due_checkbox, self.due_date_input); self.layout.addLayout(form_layout)
+
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
     def get_task_data(self):
         due = self.due_date_input.dateTime().toString(Qt.DateFormat.ISODate) if self.due_checkbox.isChecked() else None
+
         return {
             "title": self.title_input.text(),
             "notes": self.notes_input.toPlainText(),
@@ -112,6 +130,7 @@ class AddTaskDialog(QDialog):
             "due_date": due,
             "recurrence": self.recur_input.currentText(),
         }
+
 class EditTaskDialog(QDialog):
     def __init__(self, task_data, parent=None):
         super().__init__(parent); self.setWindowTitle("Edit Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
@@ -120,6 +139,7 @@ class EditTaskDialog(QDialog):
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"]); self.type_input.setCurrentText(task_data['task_type'] or "")
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data['task_priority'] or "")
         self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"]); self.recur_input.setCurrentText(task_data.get('recurrence') or "")
+
         self.due_checkbox = QCheckBox("Due Date")
         self.due_date_input = QDateTimeEdit(QDateTime.currentDateTime()); self.due_date_input.setDisplayFormat("yyyy-MM-dd HH:mm"); self.due_date_input.setCalendarPopup(True); self.due_date_input.setEnabled(False)
         if task_data['due_date']:
@@ -130,12 +150,15 @@ class EditTaskDialog(QDialog):
                 pass
         self.due_checkbox.stateChanged.connect(lambda: self.due_date_input.setEnabled(self.due_checkbox.isChecked()))
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
+
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input); form_layout.addRow("Repeats:", self.recur_input); form_layout.addRow(self.due_checkbox, self.due_date_input)
+
         self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
     def get_updated_data(self):
         due = self.due_date_input.dateTime().toString(Qt.DateFormat.ISODate) if self.due_checkbox.isChecked() else None
+
         return {
             "title": self.title_input.text(),
             "notes": self.notes_input.toPlainText(),
@@ -145,3 +168,4 @@ class EditTaskDialog(QDialog):
             "due_date": due,
             "recurrence": self.recur_input.currentText(),
         }
+

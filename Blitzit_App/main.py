@@ -22,6 +22,10 @@ from widgets.floating_widget import FloatingWidget
 from widgets.today_list_widget import TodayListWidget
 from widgets.welcome_dialog import WelcomeDialog
 
+from widgets.archive_view_widget import ArchivedTasksWidget # Import new widget
+from widgets.welcome_dialog import WelcomeDialog # Import from main/feature/column-task-count
+
+
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
@@ -93,6 +97,8 @@ class BlitzitApp(QMainWindow):
         self.board_view_btn.clicked.connect(lambda: self.switch_view(0))
         self.matrix_view_btn = QPushButton(qta.icon('fa5s.th-large'), " Matrix View")
         self.matrix_view_btn.clicked.connect(lambda: self.switch_view(1))
+        self.archive_view_btn = QPushButton(qta.icon('fa5s.archive'), " Archived Tasks") # New Archive View button
+        self.archive_view_btn.clicked.connect(lambda: self.switch_view(2)) # Assuming index 2 for archive view
         
         self.float_btn = QPushButton(qta.icon('fa5s.window-restore'), " Float Today List")
         self.float_btn.clicked.connect(self.enter_today_list_mode)
@@ -122,6 +128,7 @@ class BlitzitApp(QMainWindow):
         left_panel_layout.addWidget(view_switcher_label)
         left_panel_layout.addWidget(self.board_view_btn)
         left_panel_layout.addWidget(self.matrix_view_btn)
+        left_panel_layout.addWidget(self.archive_view_btn) # Add new button to layout
         left_panel_layout.addWidget(self.float_btn)
         left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         left_panel_layout.addWidget(theme_label)
@@ -158,8 +165,13 @@ class BlitzitApp(QMainWindow):
         self.matrix_view = EisenhowerMatrix()
         self.matrix_view.task_dropped_in_quadrant.connect(self.handle_matrix_drop)
         
-        self.view_stack.addWidget(board_view_widget)
-        self.view_stack.addWidget(self.matrix_view)
+        # --- View 3: Archived Tasks View ---
+        self.archive_view = ArchivedTasksWidget()
+        self.archive_view.task_unarchive_requested.connect(self.handle_unarchive_task_request) # Connect signal
+
+        self.view_stack.addWidget(board_view_widget) # Index 0
+        self.view_stack.addWidget(self.matrix_view)   # Index 1
+        self.view_stack.addWidget(self.archive_view)  # Index 2
         
         # --- Overlays & Floating Widgets ---
         self.celebration = CelebrationWidget(self)
@@ -198,6 +210,7 @@ class BlitzitApp(QMainWindow):
                 config["show_welcome"] = False
                 save_config(config)
 
+
     def check_due_tasks(self):
         tasks = database.get_all_tasks_from_all_projects()
         now = datetime.now()
@@ -216,6 +229,7 @@ class BlitzitApp(QMainWindow):
                 message = f"{task['title']} due {due_dt.strftime('%Y-%m-%d %H:%M')}"
                 self.tray.showMessage(title, message)
                 self.notified_task_ids.add(task["id"])
+
 
     def change_theme(self, theme_name):
         """Loads and applies a new theme stylesheet and saves the choice."""
@@ -306,19 +320,66 @@ class BlitzitApp(QMainWindow):
         project_id = current_item.data(Qt.ItemDataRole.UserRole)
         if self.current_project_id != project_id: self.current_project_id = project_id; self.refresh_all_views()
 
-    def switch_view(self, index): self.view_stack.setCurrentIndex(index); self.refresh_all_views()
+    def switch_view(self, index):
+        self.view_stack.setCurrentIndex(index)
+        self.refresh_all_views() # refresh_all_views will now handle populating the correct view
     
     def refresh_all_views(self):
-        tasks_to_display = []
-        if self.current_project_id == -1: tasks_to_display = database.get_all_tasks_from_all_projects(); self.add_task_btn.setEnabled(False)
-        elif self.current_project_id is not None: tasks_to_display = database.get_tasks_for_project(self.current_project_id); self.add_task_btn.setEnabled(True)
-        self.clear_all_columns(); self.matrix_view.clear_all_quadrants()
-        for task in tasks_to_display:
-            task_widget = TaskWidget(task); task_widget.task_completed.connect(self.complete_task); task_widget.task_deleted.connect(self.delete_task)
-            task_widget.task_edit_requested.connect(self.open_edit_task_dialog); task_widget.focus_requested.connect(self.start_focus_mode); task_widget.task_reopened.connect(self.reopen_task)
-            if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
-        active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
-        self.matrix_view.populate_matrix(active_tasks)
+        current_view_index = self.view_stack.currentIndex()
+
+        if current_view_index == 2: # Archive View
+            self.clear_all_columns() # Clear board view
+            self.matrix_view.clear_all_quadrants() # Clear matrix view
+            self.archive_view.clear_view() # Clear previous archive list
+
+            archived_tasks = []
+            if self.current_project_id == -1: # All Projects
+                archived_tasks = database.get_all_archived_tasks()
+                projects_map = {p['id']: p['name'] for p in database.get_all_projects()}
+                # Convert sqlite3.Row to dict before assignment
+                archived_tasks = [dict(task) for task in archived_tasks]
+                for task in archived_tasks:
+                    task['project_name'] = projects_map.get(task['project_id'])
+            elif self.current_project_id is not None: # Specific Project
+                archived_tasks = database.get_archived_tasks_for_project(self.current_project_id)
+                archived_tasks = [dict(task) for task in archived_tasks]
+
+            self.archive_view.populate_archived_tasks(archived_tasks)
+            self.add_task_btn.setEnabled(False) # Can't add tasks in archive view
+
+        else: # Board View (index 0) or Matrix View (index 1)
+            self.archive_view.clear_view() # Clear archive view if not active
+            tasks_to_display = []
+            if self.current_project_id == -1:
+                tasks_to_display = database.get_all_tasks_from_all_projects()
+                self.add_task_btn.setEnabled(False)
+            elif self.current_project_id is not None:
+                tasks_to_display = database.get_tasks_for_project(self.current_project_id)
+                self.add_task_btn.setEnabled(True)
+            else:
+                tasks_to_display = []
+                self.add_task_btn.setEnabled(False)
+
+
+            self.clear_all_columns()
+            self.matrix_view.clear_all_quadrants()
+
+            for task in tasks_to_display:
+                task_widget = TaskWidget(task)
+                task_widget.task_completed.connect(self.complete_task)
+                task_widget.task_deleted.connect(self.delete_task)
+                task_widget.task_edit_requested.connect(self.open_edit_task_dialog)
+                task_widget.focus_requested.connect(self.start_focus_mode)
+                task_widget.task_reopened.connect(self.reopen_task)
+                task_widget.task_archived.connect(self.handle_archive_task_request) # Connect new signal
+                if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
+
+            # Update task counts for all columns
+            for col_name in self.columns:
+                self.columns[col_name].update_task_count_display()
+
+            active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
+            self.matrix_view.populate_matrix(active_tasks)
 
     def clear_all_columns(self):
         for column in self.columns.values():
@@ -357,6 +418,11 @@ class BlitzitApp(QMainWindow):
                 if source_container.column_name != new_column_name:
                     source_ids = [source_layout.itemAt(i).widget().task_id for i in range(source_layout.count())]
                     database.update_task_order(source_ids)
+
+                # Update task counts for affected columns
+                self.columns[new_column_name].update_task_count_display()
+                if source_container.column_name != new_column_name:
+                    self.columns[source_container.column_name].update_task_count_display()
             else:
                 # Fallback to a full refresh if something goes wrong
                 self.refresh_all_views()
@@ -429,7 +495,9 @@ class BlitzitApp(QMainWindow):
     def reopen_task(self, task_id): database.update_task_column(task_id, "Today"); self.refresh_all_views()
     
     def complete_task(self, task_id):
-        database.update_task_column(task_id, "Done"); self.celebration.show_celebration()
+        database.update_task_column(task_id, "Done")
+        self.refresh_all_views() # Refresh to update counts and UI state
+        self.celebration.show_celebration()
 
     def open_add_task_dialog(self):
         if self.current_project_id is None or self.current_project_id == -1: QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task."); return
@@ -437,7 +505,9 @@ class BlitzitApp(QMainWindow):
         if dialog.exec():
             task_data = dialog.get_task_data()
             if task_data["title"]:
+
                 database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"], recurrence=task_data["recurrence"])
+
                 self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
@@ -448,6 +518,7 @@ class BlitzitApp(QMainWindow):
         if dialog.exec():
             updated_data = dialog.get_updated_data()
             if updated_data["title"]:
+
                 database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"], updated_data["recurrence"])
                 self.refresh_all_views()
     
@@ -457,6 +528,22 @@ class BlitzitApp(QMainWindow):
     def delete_task(self, task_id):
         reply = QMessageBox.question(self, 'Delete Task', "Are you sure you want to delete this task?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
         if reply == QMessageBox.StandardButton.Yes: database.delete_task(task_id); self.refresh_all_views()
+
+    def handle_archive_task_request(self, task_id):
+        # Optional: Add a confirmation dialog here if desired
+        # reply = QMessageBox.question(self, 'Archive Task', "Are you sure you want to archive this task?", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        # if reply == QMessageBox.StandardButton.Yes:
+        database.archive_task(task_id)
+        self.refresh_all_views()
+
+    def handle_unarchive_task_request(self, task_id):
+        # Optional: Confirmation
+        # reply = QMessageBox.question(self, 'Unarchive Task', "Are you sure you want to unarchive this task? It will be moved to 'Backlog'.", QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No, QMessageBox.StandardButton.No)
+        # if reply == QMessageBox.StandardButton.Yes:
+        database.unarchive_task(task_id) # Defaults to "Backlog"
+        self.refresh_all_views() # This will refresh the current view, which should be the archive view
+        # If the archive view is active, it needs to be repopulated.
+        # If another view becomes active, it will show the unarchived task.
 
     def resizeEvent(self, event):
         super().resizeEvent(event)
