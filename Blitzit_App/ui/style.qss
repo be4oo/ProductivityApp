@@ -1,0 +1,241 @@
+/* Blitzit_App/ui/style.qss */
+
+/* A professional, modern dark theme */
+/* Primary Colors: Deep Blue-Gray Base, Light Text, Vibrant Blue Accent */
+
+QMainWindow, QDialog {
+    font-family: "Segoe UI", "Helvetica Neue", "Arial", sans-serif;
+    background-color: #1c2128; /* Deep blue-gray background */
+    color: #cdd9e5; /* Light gray text */
+}
+
+/* Main content frames (Left panel, Right panel) */
+QFrame {
+    background-color: #22272e;
+    border: 1px solid #333a44;
+    border-radius: 8px;
+}
+
+#ColumnTitle {
+    color: #cdd9e5;
+    font-size: 16pt;
+    font-weight: bold;
+    padding: 5px 10px;
+    margin-bottom: 10px;
+    background-color: transparent;
+    border: none;
+}
+
+/* Buttons */
+QPushButton {
+    background-color: #2d333b;
+    color: #cdd9e5;
+    border: 1px solid #404753;
+    padding: 8px 12px;
+    border-radius: 6px;
+    font-size: 10pt;
+    font-weight: bold;
+}
+QPushButton:hover {
+    background-color: #333942;
+    border-color: #505867;
+}
+QPushButton:pressed {
+    background-color: #272c34;
+}
+/* Special Accent Button for Adding Tasks */
+#AddTaskButton {
+    background-color: #337dff;
+    color: #ffffff;
+    border: none;
+}
+#AddTaskButton:hover {
+    background-color: #4b8eff;
+}
+
+
+/* Task Widget - The most important element */
+#TaskWidget {
+    background-color: #2d333b;
+    border: 1px solid #404753;
+    border-radius: 6px;
+    margin-bottom: 8px;
+    padding: 12px;
+}
+#TaskWidget:hover {
+    border-color: #505867;
+}
+
+#TaskTitle {
+    color: #cdd9e5;
+    font-weight: bold;
+    font-size: 11pt;
+}
+
+#TaskNotes {
+    color: #909dab;
+    font-size: 9pt;
+}
+
+/* Task Action Buttons (Now Icons) */
+#TaskActionButton {
+    background-color: transparent;
+    border: none;
+    padding: 4px;
+    border-radius: 4px;
+    color: #909dab;
+}
+#TaskActionButton:hover {
+    background-color: #333942;
+    color: #cdd9e5;
+}
+
+/* Focus Overlay */
+#FocusBackground {
+    background-color: rgba(28, 33, 40, 0.97);
+}
+#FocusTaskTitle {
+    color: #ffffff;
+    font-size: 32pt;
+}
+#ExitFocusButton {
+    background-color: #2d333b;
+}
+
+/* Scroll Bar */
+QScrollArea { border: none; }
+QScrollBar:vertical {
+    border: none;
+    background: #22272e;
+    width: 12px;
+}
+QScrollBar::handle:vertical {
+    background: #404753;
+    min-height: 25px;
+    border-radius: 6px;
+}
+
+/* Input Fields */
+QLineEdit, QTextEdit, QComboBox {
+    background-color: #22272e;
+    color: #cdd9e5;
+    border: 1px solid #404753;
+    border-radius: 6px;
+    padding: 8px;
+}
+QComboBox::drop-down {
+    border: none;
+}
+
+/* Add this to the end of style.qss */
+
+/* Style for Tasks in the "Done" column */
+#TaskWidget[class="done-task"] {
+    background-color: #22272e; /* Make it blend more with the background */
+    opacity: 0.7;
+}
+
+#TaskWidget[class="done-task"] #TaskTitle {
+    text-decoration: line-through;
+    color: #909dab;
+}
+
+
+/* Add this to the end of style.qss */
+
+/* Style for the main "Blitz Now" button */
+#BlitzButton {
+    font-size: 14pt;
+    font-weight: bold;
+    color: white;
+    padding: 12px 30px;
+    border: none;
+    border-radius: 15px;
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                      stop:0 #da4453, stop:1 #89216b);
+}
+
+#BlitzButton:hover {
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                      stop:0 #e45a69, stop:1 #9e3b7f);
+}
+
+#BlitzButton:pressed {
+    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1,
+                                      stop:0 #c83341, stop:1 #7a1c5d);
+}
+
+
+/* Add this to the end of style.qss */
+
+/* Style for the Time Estimate Label on Task Cards */
+#TimeEstLabel {
+    color: #909dab;
+    font-size: 9pt;
+    font-weight: bold;
+    background-color: transparent;
+    border: none;
+    padding: 2px 5px;
+}
+
+
+/* Add this to the end of style.qss */
+
+/* --- New Focus Mode Styles --- */
+#FocusTimerDisplay {
+    font-size: 80pt;
+    font-weight: bold;
+    color: #ffffff;
+}
+
+#FocusTimerDisplay[overtime="true"] {
+    color: #da4453; /* Change color to red when in overtime */
+}
+
+#FocusSubtext {
+    font-size: 12pt;
+    color: #909dab;
+    font-weight: bold;
+}
+
+#FocusControlButton {
+    background-color: #2d333b;
+    border: 1px solid #404753;
+    color: #cdd9e5;
+    padding: 10px;
+    border-radius: 8px;
+    min-width: 80px; /* Give buttons some width */
+}
+#FocusControlButton:hover {
+    background-color: #333942;
+}
+
+/* Add this to the end of style.qss */
+
+/* Style for the Actual Time Label on Task Cards */
+#TimeActLabel {
+    color: #909dab;
+    font-size: 9pt;
+    background-color: transparent;
+    border: none;
+    padding: 2px 5px;
+}
+
+
+/* Add this to the end of style.qss */
+
+/* Styles for Priority & Type Tags */
+#PriorityLow, #PriorityMedium, #PriorityHigh, #TypeWork, #TypePersonal, #TypeOther {
+    font-size: 8pt;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-radius: 4px;
+}
+
+#PriorityLow { background-color: #337dff; color: white; }
+#PriorityMedium { background-color: #f7a239; color: black; }
+#PriorityHigh { background-color: #da4453; color: white; }
+
+#TypeWork { background-color: #89216b; color: white; }
+#TypePersonal { background-color: #2ecc71; color: black; }
+#TypeOther { background-color: #909dab; color: black; }
