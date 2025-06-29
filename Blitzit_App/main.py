@@ -4,7 +4,7 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog,
     QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog,
-    QSystemTrayIcon
+    QSystemTrayIcon, QComboBox
 )
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QAction, QFontDatabase  # <--- Import QFontDatabase
@@ -38,9 +38,11 @@ def load_config():
                 config['theme'] = 'dark'
             if 'show_welcome' not in config:
                 config['show_welcome'] = True
+            if 'font_size' not in config:
+                config['font_size'] = 10
             return config
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"theme": "dark", "show_welcome": True}
+        return {"theme": "dark", "show_welcome": True, "font_size": 10}
 
 def save_config(config):
     """Saves the configuration file."""
@@ -62,6 +64,11 @@ class BlitzitApp(QMainWindow):
         self.parent_app = parent_app
         self.setWindowTitle("Blitzit Productivity Hub")
         self.setMinimumSize(1200, 750)
+
+        config = load_config()
+        font = self.font()
+        font.setPointSize(config.get("font_size", 10))
+        QApplication.instance().setFont(font)
         
         # --- App State ---
         self.column_order = ["Backlog", "This Week", "Today"]
@@ -113,6 +120,17 @@ class BlitzitApp(QMainWindow):
         theme_button_layout.addWidget(self.dark_theme_btn)
         theme_button_layout.addWidget(self.light_theme_btn)
 
+        font_label = QLabel("Font Size")
+        font_label.setObjectName("ColumnTitle")
+        self.font_box = QComboBox()
+        self.font_box.addItems(["Small", "Medium", "Large"])
+        self.font_box.currentTextChanged.connect(self.change_font_size)
+        font_layout = QHBoxLayout()
+        font_layout.addWidget(self.font_box)
+        cfg = load_config()
+        index_map = {8:0, 10:1, 12:2}
+        self.font_box.setCurrentIndex(index_map.get(cfg.get("font_size",10), 1))
+
         actions_label = QLabel("Actions")
         actions_label.setObjectName("ColumnTitle")
         self.add_task_btn = QPushButton(qta.icon('fa5s.plus-circle'), " Add Task")
@@ -133,6 +151,8 @@ class BlitzitApp(QMainWindow):
         left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         left_panel_layout.addWidget(theme_label)
         left_panel_layout.addLayout(theme_button_layout)
+        left_panel_layout.addWidget(font_label)
+        left_panel_layout.addLayout(font_layout)
         left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         left_panel_layout.addWidget(actions_label)
         left_panel_layout.addWidget(self.add_task_btn)
@@ -239,6 +259,17 @@ class BlitzitApp(QMainWindow):
         stylesheet = load_stylesheet(theme_name)
         if self.parent_app:
             self.parent_app.setStyleSheet(stylesheet)
+
+    def change_font_size(self, size_label):
+        """Adjusts the application font size."""
+        mapping = {"Small": 8, "Medium": 10, "Large": 12}
+        size = mapping.get(size_label, 10)
+        config = load_config()
+        config['font_size'] = size
+        save_config(config)
+        font = self.font()
+        font.setPointSize(size)
+        QApplication.instance().setFont(font)
 
     def find_widget_by_id(self, task_id_to_find):
         """Finds a task widget in any view and returns it, its layout, and its container."""

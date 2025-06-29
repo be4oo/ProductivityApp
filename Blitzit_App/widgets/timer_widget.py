@@ -4,16 +4,19 @@ from PyQt6.QtCore import Qt, QTimer, QTime
 from PyQt6.QtGui import QFont
 
 class TimerWidget(QWidget):
-    """A widget for the Pomodoro Timer."""
-    
+    """A widget implementing full Pomodoro cycles."""
+
     # Define Pomodoro session lengths in minutes
     WORK_MINUTES = 25
-    BREAK_MINUTES = 5
+    SHORT_BREAK_MINUTES = 5
+    LONG_BREAK_MINUTES = 15
+    CYCLES_BEFORE_LONG_BREAK = 4
 
     def __init__(self, parent=None):
         super().__init__(parent)
         
         self.is_work_session = True
+        self.session_count = 0
         self.is_paused = True
         
         # QTimer is the heart of our countdown
@@ -80,22 +83,35 @@ class TimerWidget(QWidget):
             self.start_pause_btn.setText("Start")
         self.is_paused = not self.is_paused
 
+    def current_session_minutes(self):
+        if self.is_work_session:
+            return self.WORK_MINUTES
+        if self.session_count % self.CYCLES_BEFORE_LONG_BREAK == 0:
+            return self.LONG_BREAK_MINUTES
+        return self.SHORT_BREAK_MINUTES
+
     def reset_timer(self):
         """Resets the timer to the current session's default time."""
         self.timer.stop()
-        minutes = self.WORK_MINUTES if self.is_work_session else self.BREAK_MINUTES
+        minutes = self.current_session_minutes()
         self.time_left = QTime(0, minutes, 0)
         self.time_label.setText(self.time_left.toString("mm:ss"))
         self.is_paused = True
         self.start_pause_btn.setText("Start")
 
     def switch_session(self):
-        """Switches between work and break sessions."""
-        self.is_work_session = not self.is_work_session
+        """Switches between work and break sessions automatically."""
+        if self.is_work_session:
+            self.session_count += 1
+            self.is_work_session = False
+        else:
+            self.is_work_session = True
         if self.is_work_session:
             self.status_label.setText("Work Session")
         else:
-            self.status_label.setText("Break Time!")
+            if self.session_count % self.CYCLES_BEFORE_LONG_BREAK == 0:
+                self.status_label.setText("Long Break")
+            else:
+                self.status_label.setText("Break Time!")
         self.reset_timer()
-        # Optionally, you could automatically start the next session here
-        # self.toggle_start_pause()
+        self.toggle_start_pause()
