@@ -1,7 +1,9 @@
 # Blitzit_App/widgets/task_widgets.py
 import re
-from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QTextEdit, QComboBox, QDialogButtonBox, QPushButton, QFrame, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
+from PyQt6.QtWidgets import (QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout,
+                             QLineEdit, QTextEdit, QComboBox, QDialogButtonBox,
+                             QPushButton, QFrame, QLabel, QDateTimeEdit)
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QDateTime
 from PyQt6.QtGui import QDrag, QPixmap
 import qtawesome as qta
 
@@ -39,8 +41,17 @@ class TaskWidget(QFrame):
             type_label = QLabel(task['task_type']); type_label.setObjectName(f"Type{task['task_type']}")
             top_row_layout.addWidget(type_label)
         main_layout.addLayout(top_row_layout)
+
+        if task.get('due_date'):
+            due_date_dt = QDateTime.fromString(task['due_date'], Qt.DateFormat.ISODateWithMs)
+            due_date_label = QLabel(f"Due: {due_date_dt.toString('yyyy-MM-dd hh:mm ap')}")
+            due_date_label.setObjectName("TaskDueDateLabel")
+            # Potentially add styling for overdue tasks here based on current time vs due_date_dt
+            main_layout.addWidget(due_date_label)
+
         notes_label = QLabel(task['notes']); notes_label.setObjectName("TaskNotes"); notes_label.setWordWrap(True)
         main_layout.addWidget(notes_label)
+
         time_layout = QHBoxLayout(); time_layout.setContentsMargins(0, 8, 0, 0)
         est_time_str = format_time(task['estimated_time']); est_time_label = QLabel(f"Est: {est_time_str}")
         act_time_str = format_time(task['actual_time']); act_time_label = QLabel(f"Actual: {act_time_str}")
@@ -91,24 +102,105 @@ class AddTaskDialog(QDialog):
         self.time_input = QLineEdit(); self.time_input.setPlaceholderText("e.g., 1h 30m or 45m")
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"])
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"])
+
+        self.due_date_input = QDateTimeEdit(self)
+        self.due_date_input.setCalendarPopup(True)
+        self.due_date_input.setDateTime(QDateTime.currentDateTime().addDays(1)) # Default to tomorrow
+        self.due_date_input.setMinimumDateTime(QDateTime.currentDateTime().addSecs(-60*60*24*365*2)) # Allow past dates for flexibility
+        self.due_date_input.setDisplayFormat("yyyy-MM-dd hh:mm ap")
+        self.due_date_input.setSpecialValueText("No Due Date") # Displayed when date is not set / at minimum
+        self.due_date_input.setDateTime(self.due_date_input.minimumDateTime()) # Set to "No Due Date" initially
+
+        self.reminder_at_input = QDateTimeEdit(self)
+        self.reminder_at_input.setCalendarPopup(True)
+        self.reminder_at_input.setDateTime(QDateTime.currentDateTime())
+        self.reminder_at_input.setMinimumDateTime(QDateTime.currentDateTime().addSecs(-60*60*24*365*2))
+        self.reminder_at_input.setDisplayFormat("yyyy-MM-dd hh:mm ap")
+        self.reminder_at_input.setSpecialValueText("No Reminder")
+        self.reminder_at_input.setDateTime(self.reminder_at_input.minimumDateTime()) # Set to "No Reminder" initially
+
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input)
-        form_layout.addRow("Priority:", self.priority_input); self.layout.addLayout(form_layout)
+        form_layout.addRow("Priority:", self.priority_input)
+        form_layout.addRow("Due Date:", self.due_date_input)
+        form_layout.addRow("Reminder At:", self.reminder_at_input)
+
+        self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
+
     def get_task_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
+        due_date_str = None
+        if self.due_date_input.dateTime() > self.due_date_input.minimumDateTime():
+            due_date_str = self.due_date_input.dateTime().toString(Qt.DateFormat.ISODateWithMs) # Store as ISO string (YYYY-MM-DDTHH:mm:ss.zzz)
+
+        reminder_at_str = None
+        if self.reminder_at_input.dateTime() > self.reminder_at_input.minimumDateTime():
+            reminder_at_str = self.reminder_at_input.dateTime().toString(Qt.DateFormat.ISODateWithMs)
+
+        return {
+            "title": self.title_input.text(),
+            "notes": self.notes_input.toPlainText(),
+            "estimated_time": parse_time_string_to_minutes(self.time_input.text()),
+            "task_type": self.type_input.currentText(),
+            "task_priority": self.priority_input.currentText(),
+            "due_date": due_date_str,
+            "reminder_at": reminder_at_str
+        }
+
 class EditTaskDialog(QDialog):
     def __init__(self, task_data, parent=None):
         super().__init__(parent); self.setWindowTitle("Edit Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
         self.title_input = QLineEdit(task_data['title']); self.notes_input = QTextEdit(task_data['notes']); self.notes_input.setFixedHeight(80)
         self.time_input = QLineEdit(); self.time_input.setText(format_time(task_data['estimated_time']))
-        self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"]); self.type_input.setCurrentText(task_data['task_type'] or "")
-        self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data['task_priority'] or "")
+        self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"]); self.type_input.setCurrentText(task_data.get('task_type') or "")
+        self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data.get('task_priority') or "")
+
+        self.due_date_input = QDateTimeEdit(self)
+        self.due_date_input.setCalendarPopup(True)
+        self.due_date_input.setMinimumDateTime(QDateTime.currentDateTime().addSecs(-60*60*24*365*2)) # Min date for "No Due Date"
+        self.due_date_input.setDisplayFormat("yyyy-MM-dd hh:mm ap")
+        self.due_date_input.setSpecialValueText("No Due Date")
+        if task_data.get('due_date'):
+            self.due_date_input.setDateTime(QDateTime.fromString(task_data['due_date'], Qt.DateFormat.ISODateWithMs))
+        else:
+            self.due_date_input.setDateTime(self.due_date_input.minimumDateTime())
+
+
+        self.reminder_at_input = QDateTimeEdit(self)
+        self.reminder_at_input.setCalendarPopup(True)
+        self.reminder_at_input.setMinimumDateTime(QDateTime.currentDateTime().addSecs(-60*60*24*365*2)) # Min date for "No Reminder"
+        self.reminder_at_input.setDisplayFormat("yyyy-MM-dd hh:mm ap")
+        self.reminder_at_input.setSpecialValueText("No Reminder")
+        if task_data.get('reminder_at'):
+            self.reminder_at_input.setDateTime(QDateTime.fromString(task_data['reminder_at'], Qt.DateFormat.ISODateWithMs))
+        else:
+            self.reminder_at_input.setDateTime(self.reminder_at_input.minimumDateTime())
+
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input)
+        form_layout.addRow("Due Date:", self.due_date_input)
+        form_layout.addRow("Reminder At:", self.reminder_at_input)
+
         self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
+
     def get_updated_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
+        due_date_str = None
+        if self.due_date_input.dateTime() > self.due_date_input.minimumDateTime():
+            due_date_str = self.due_date_input.dateTime().toString(Qt.DateFormat.ISODateWithMs)
+
+        reminder_at_str = None
+        if self.reminder_at_input.dateTime() > self.reminder_at_input.minimumDateTime():
+            reminder_at_str = self.reminder_at_input.dateTime().toString(Qt.DateFormat.ISODateWithMs)
+
+        return {
+            "title": self.title_input.text(),
+            "notes": self.notes_input.toPlainText(),
+            "estimated_time": parse_time_string_to_minutes(self.time_input.text()),
+            "task_type": self.type_input.currentText(),
+            "task_priority": self.priority_input.currentText(),
+            "due_date": due_date_str,
+            "reminder_at": reminder_at_str
+        }

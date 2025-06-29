@@ -2,9 +2,10 @@
 import sys, os, json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
-                             QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
-from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
+                             QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog,
+                             QSystemTrayIcon) # Added QSystemTrayIcon
+from PyQt6.QtCore import Qt, QTimer, QDateTime # Added QDateTime
+from PyQt6.QtGui import QIcon, QAction, QFontDatabase
 import qtawesome as qta
 
 import database
@@ -16,9 +17,9 @@ from widgets.column_widget import DropColumn
 from widgets.eisenhower_widget import EisenhowerMatrix, QuadrantWidget
 from widgets.floating_widget import FloatingWidget
 from widgets.today_list_widget import TodayListWidget
-
-from widgets.archive_view_widget import ArchivedTasksWidget # Import new widget
-from widgets.welcome_dialog import WelcomeDialog # Import from main/feature/column-task-count
+from widgets.archive_view_widget import ArchivedTasksWidget
+from widgets.welcome_dialog import WelcomeDialog
+from notifications import NotificationManager # Import NotificationManager
 
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
 CONFIG_FILE = "config.json"
@@ -27,14 +28,9 @@ def load_config():
     """Loads the configuration file (e.g., for theme choice)."""
     try:
         with open(CONFIG_FILE, 'r') as f:
-            config = json.load(f)
-            if 'theme' not in config:
-                config['theme'] = 'dark'
-            if 'show_welcome' not in config:
-                config['show_welcome'] = True
-            return config
+            return json.load(f)
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"theme": "dark", "show_welcome": True}
+        return {"theme": "dark"} # Default to dark theme
 
 def save_config(config):
     """Saves the configuration file."""
@@ -185,16 +181,53 @@ class BlitzitApp(QMainWindow):
         self.single_task_float.hide()
         self.today_list_float.hide()
 
-        self.load_projects()
-        self.show_welcome_if_needed()
+        self.setup_tray_icon()
 
-    def show_welcome_if_needed(self):
-        config = load_config()
-        if config.get("show_welcome", True):
-            dialog = WelcomeDialog(self)
-            if dialog.exec() and dialog.do_not_show_again():
-                config["show_welcome"] = False
-                save_config(config)
+        # Setup Notification Manager
+        self.notification_manager = NotificationManager(self)
+        self.notification_manager.show_notification_signal.connect(self.show_desktop_notification)
+        self.notification_manager.start()
+
+        self.load_projects()
+
+    def setup_tray_icon(self):
+        self.tray_icon = QSystemTrayIcon(QIcon("assets/icon.png"), self)
+        self.tray_icon.setToolTip("Blitzit Productivity Hub")
+
+        # Basic menu for the tray icon (optional, can be expanded)
+        tray_menu = QMenu()
+        show_action = QAction("Show App", self)
+        show_action.triggered.connect(self.show_normal_and_raise)
+        tray_menu.addAction(show_action)
+
+        quit_action = QAction("Quit Blitzit", self)
+        quit_action.triggered.connect(QApplication.instance().quit)
+        tray_menu.addAction(quit_action)
+
+        self.tray_icon.setContextMenu(tray_menu)
+        self.tray_icon.show()
+
+    def show_normal_and_raise(self):
+        self.showNormal()
+        self.raise_()
+        self.activateWindow()
+
+    def show_desktop_notification(self, task_id_str, title):
+        task_id = -1
+        try:
+            task_id = int(task_id_str)
+        except ValueError:
+            print(f"Error: Invalid task_id '{task_id_str}' for notification.")
+            return
+
+        message = f"Reminder for task: {title}"
+        self.tray_icon.showMessage("Blitzit Reminder", message, QSystemTrayIcon.MessageIcon.Information, 5000) # Show for 5 seconds
+
+        # Update last_notified_at (Step 6 integrated here)
+        now_iso = QDateTime.currentDateTime().toString(Qt.DateFormat.ISODateWithMs)
+        database.update_task_last_notified(task_id, now_iso)
+        # print(f"Notification shown for task {task_id}. Last_notified_at updated.")
+
 
     def change_theme(self, theme_name):
         """Loads and applies a new theme stylesheet and saves the choice."""
@@ -465,7 +498,19 @@ class BlitzitApp(QMainWindow):
         dialog = AddTaskDialog(self);
         if dialog.exec():
             task_data = dialog.get_task_data();
-            if task_data["title"]: database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"]); self.refresh_all_views()
+            if task_data["title"]:
+                database.add_task(
+                    title=task_data["title"],
+                    notes=task_data["notes"],
+                    project_id=self.current_project_id,
+                    column="Backlog",
+                    est_time=task_data["estimated_time"],
+                    task_type=task_data["task_type"],
+                    task_priority=task_data["task_priority"],
+                    due_date=task_data.get("due_date"), # Pass new field
+                    reminder_at=task_data.get("reminder_at") # Pass new field
+                )
+                self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
         task_data_source = database.get_tasks_for_project(self.current_project_id) if self.current_project_id != -1 else database.get_all_tasks_from_all_projects()
@@ -474,7 +519,18 @@ class BlitzitApp(QMainWindow):
         dialog = EditTaskDialog(task_data, self)
         if dialog.exec():
             updated_data = dialog.get_updated_data()
-            if updated_data["title"]: database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"]); self.refresh_all_views()
+            if updated_data["title"]:
+                database.update_task_details(
+                    task_id,
+                    updated_data["title"],
+                    updated_data["notes"],
+                    updated_data["estimated_time"],
+                    updated_data["task_type"],
+                    updated_data["task_priority"],
+                    due_date=updated_data.get("due_date"), # Pass new field
+                    reminder_at=updated_data.get("reminder_at") # Pass new field
+                )
+                self.refresh_all_views()
     
     def open_reporting_dialog(self):
         all_tasks_stats = database.get_report_stats(); dialog = ReportingDialog(all_tasks_stats, self); dialog.exec()

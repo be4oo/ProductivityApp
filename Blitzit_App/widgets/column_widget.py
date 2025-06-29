@@ -1,5 +1,5 @@
 # Blitzit_App/widgets/column_widget.py
-from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QScrollArea, QWidget, QHBoxLayout
+from PyQt6.QtWidgets import QFrame, QVBoxLayout, QLabel, QScrollArea, QWidget
 from PyQt6.QtCore import Qt, pyqtSignal
 
 class DropColumn(QFrame):
