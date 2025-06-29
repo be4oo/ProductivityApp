@@ -1,4 +1,4 @@
 {
-  "theme": "dark",
-  "show_welcome": true
+    "theme": "dark",
+    "show_welcome": false
 }
