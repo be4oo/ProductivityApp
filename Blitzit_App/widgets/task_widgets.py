@@ -51,25 +51,26 @@ class TaskWidget(QFrame):
         main_layout.addLayout(time_layout)
 
         # --- Display Reminder Info ---
-        if task.get('reminder_at') and self.column_name != "Done":
+        # Use dictionary-style access for sqlite3.Row and check if 'reminder_at' key exists
+        if 'reminder_at' in task and task['reminder_at'] and self.column_name != "Done":
             reminder_layout = QHBoxLayout()
             reminder_icon = QLabel(qta.icon('fa5s.bell', color='#FFA500')) # Orange bell icon
 
             reminder_qdt = QDateTime()
-            if isinstance(task['reminder_at'], str):
-                 # Try parsing from common string formats, including ISO with or without milliseconds
-                parsed_qdt = QDateTime.fromString(task['reminder_at'].split('.')[0], "yyyy-MM-dd HH:mm:ss")
-                if not parsed_qdt.isValid():
-                    parsed_qdt = QDateTime.fromString(task['reminder_at'], Qt.DateFormat.ISODate)
-                if not parsed_qdt.isValid(): # Try another common format from SQLite
-                    parsed_qdt = QDateTime.fromString(task['reminder_at'], "yyyy-MM-dd HH:mm:ss.SSSSSS")
-                reminder_qdt = parsed_qdt
-            elif isinstance(task['reminder_at'], QDateTime): # Already a QDateTime
-                reminder_qdt = task['reminder_at']
-            # Add other type checks if necessary e.g. Python datetime
-            elif hasattr(task['reminder_at'], 'strftime'): # Check if it's a Python datetime object
-                 reminder_qdt = QDateTime.fromString(task['reminder_at'].strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss")
+            reminder_value = task['reminder_at'] # Use the value after checking existence
 
+            if isinstance(reminder_value, str):
+                 # Try parsing from common string formats, including ISO with or without milliseconds
+                parsed_qdt = QDateTime.fromString(reminder_value.split('.')[0], "yyyy-MM-dd HH:mm:ss")
+                if not parsed_qdt.isValid():
+                    parsed_qdt = QDateTime.fromString(reminder_value, Qt.DateFormat.ISODate)
+                if not parsed_qdt.isValid(): # Try another common format from SQLite
+                    parsed_qdt = QDateTime.fromString(reminder_value, "yyyy-MM-dd HH:mm:ss.SSSSSS")
+                reminder_qdt = parsed_qdt
+            elif isinstance(reminder_value, QDateTime): # Already a QDateTime
+                reminder_qdt = reminder_value
+            elif hasattr(reminder_value, 'strftime'): # Check if it's a Python datetime object
+                 reminder_qdt = QDateTime.fromString(reminder_value.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss")
 
             if reminder_qdt.isValid() and not reminder_qdt.isNull():
                 reminder_text = reminder_qdt.toString("MMM dd, hh:mm ap")
@@ -80,8 +81,7 @@ class TaskWidget(QFrame):
                 reminder_layout.addWidget(reminder_label)
                 main_layout.addLayout(reminder_layout)
             # else:
-                # print(f"Debug: Could not display reminder for task {self.task_id}, reminder_at: {task.get('reminder_at')}, type: {type(task.get('reminder_at'))}")
-
+                # print(f"Debug: Could not display reminder for task {self.task_id}, reminder_at: {reminder_value}, type: {type(reminder_value)}")
 
         button_layout = QHBoxLayout(); button_layout.setContentsMargins(0, 8, 0, 0)
         if self.column_name == "Done":
