@@ -1,8 +1,9 @@
 # Blitzit_App/widgets/task_widgets.py
 import re
-from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QTextEdit, QComboBox, QDialogButtonBox, QPushButton, QFrame, QLabel
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
+from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QTextEdit, QComboBox, QDialogButtonBox, QPushButton, QFrame, QLabel, QCheckBox, QDateTimeEdit
+from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QDateTime
 from PyQt6.QtGui import QDrag, QPixmap
+import database
 import qtawesome as qta
 
 # Helper functions are unchanged
@@ -71,7 +72,6 @@ class TaskWidget(QFrame):
         drag.setMimeData(mime_data); pixmap = self.grab(); pixmap.setDevicePixelRatio(self.devicePixelRatioF())
         drag.setPixmap(pixmap); drag.setHotSpot(event.position().toPoint()); drag.exec(Qt.DropAction.MoveAction)
 
-# AddTaskDialog and EditTaskDialog classes are unchanged
 class AddTaskDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent); self.setWindowTitle("Add New Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
@@ -79,13 +79,35 @@ class AddTaskDialog(QDialog):
         self.time_input = QLineEdit(); self.time_input.setPlaceholderText("e.g., 1h 30m or 45m")
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"])
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"])
+        self.due_input = QDateTimeEdit(); self.due_input.setCalendarPopup(True)
+        self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"])
+        self.reminder_checkbox = QCheckBox("Enable Reminder")
+        goals = [g['name'] for g in database.get_all_goals()]
+        self.goal_input = QComboBox(); self.goal_input.addItems([""] + goals)
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input)
-        form_layout.addRow("Priority:", self.priority_input); self.layout.addLayout(form_layout)
+        form_layout.addRow("Priority:", self.priority_input)
+        form_layout.addRow("Due:", self.due_input)
+        form_layout.addRow("Recurs:", self.recur_input)
+        form_layout.addRow("Goal:", self.goal_input)
+        form_layout.addRow("", self.reminder_checkbox)
+        self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
     def get_task_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
+        goal = database.get_goal_by_name(self.goal_input.currentText()) if self.goal_input.currentText() else None
+        goal_id = goal['id'] if goal else None
+        return {
+            "title": self.title_input.text(),
+            "notes": self.notes_input.toPlainText(),
+            "estimated_time": parse_time_string_to_minutes(self.time_input.text()),
+            "task_type": self.type_input.currentText(),
+            "task_priority": self.priority_input.currentText(),
+            "due_date": self.due_input.dateTime().toString(Qt.DateFormat.ISODate),
+            "recurrence": self.recur_input.currentText(),
+            "reminder_enabled": self.reminder_checkbox.isChecked(),
+            "goal_id": goal_id,
+        }
 class EditTaskDialog(QDialog):
     def __init__(self, task_data, parent=None):
         super().__init__(parent); self.setWindowTitle("Edit Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
@@ -93,10 +115,38 @@ class EditTaskDialog(QDialog):
         self.time_input = QLineEdit(); self.time_input.setText(format_time(task_data['estimated_time']))
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"]); self.type_input.setCurrentText(task_data['task_type'] or "")
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data['task_priority'] or "")
+        self.due_input = QDateTimeEdit(); self.due_input.setCalendarPopup(True)
+        if task_data.get('due_date'):
+            self.due_input.setDateTime(QDateTime.fromString(task_data['due_date'], Qt.DateFormat.ISODate))
+        self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"])
+        self.recur_input.setCurrentText(task_data['recurrence'] or "")
+        self.reminder_checkbox = QCheckBox("Enable Reminder"); self.reminder_checkbox.setChecked(bool(task_data['reminder_enabled']))
+        goals = [g['name'] for g in database.get_all_goals()]
+        self.goal_input = QComboBox(); self.goal_input.addItems([""] + goals)
+        if task_data.get('goal_id'):
+            goal_name = next((g['name'] for g in database.get_all_goals() if g['id'] == task_data['goal_id']), "")
+            if goal_name:
+                self.goal_input.setCurrentText(goal_name)
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input)
+        form_layout.addRow("Due:", self.due_input)
+        form_layout.addRow("Recurs:", self.recur_input)
+        form_layout.addRow("Goal:", self.goal_input)
+        form_layout.addRow("", self.reminder_checkbox)
         self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
     def get_updated_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
+        goal = database.get_goal_by_name(self.goal_input.currentText()) if self.goal_input.currentText() else None
+        goal_id = goal['id'] if goal else None
+        return {
+            "title": self.title_input.text(),
+            "notes": self.notes_input.toPlainText(),
+            "estimated_time": parse_time_string_to_minutes(self.time_input.text()),
+            "task_type": self.type_input.currentText(),
+            "task_priority": self.priority_input.currentText(),
+            "due_date": self.due_input.dateTime().toString(Qt.DateFormat.ISODate),
+            "recurrence": self.recur_input.currentText(),
+            "reminder_enabled": self.reminder_checkbox.isChecked(),
+            "goal_id": goal_id,
+        }

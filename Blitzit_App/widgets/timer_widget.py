@@ -9,12 +9,14 @@ class TimerWidget(QWidget):
     # Define Pomodoro session lengths in minutes
     WORK_MINUTES = 25
     BREAK_MINUTES = 5
+    LONG_BREAK_MINUTES = 15
 
     def __init__(self, parent=None):
         super().__init__(parent)
         
         self.is_work_session = True
         self.is_paused = True
+        self.sessions_completed = 0
         
         # QTimer is the heart of our countdown
         self.timer = QTimer(self)
@@ -67,7 +69,6 @@ class TimerWidget(QWidget):
 
         # Check if the timer has reached zero
         if self.time_left == QTime(0, 0, 0):
-            self.timer.stop()
             self.switch_session()
 
     def toggle_start_pause(self):
@@ -91,11 +92,21 @@ class TimerWidget(QWidget):
 
     def switch_session(self):
         """Switches between work and break sessions."""
+        if self.is_work_session:
+            self.sessions_completed += 1
         self.is_work_session = not self.is_work_session
         if self.is_work_session:
             self.status_label.setText("Work Session")
+            minutes = self.WORK_MINUTES
         else:
-            self.status_label.setText("Break Time!")
-        self.reset_timer()
-        # Optionally, you could automatically start the next session here
-        # self.toggle_start_pause()
+            if self.sessions_completed % 4 == 0:
+                minutes = self.LONG_BREAK_MINUTES
+                self.status_label.setText("Long Break")
+            else:
+                minutes = self.BREAK_MINUTES
+                self.status_label.setText("Break Time!")
+        self.time_left = QTime(0, minutes, 0)
+        self.time_label.setText(self.time_left.toString("mm:ss"))
+        self.timer.start(1000)
+        self.is_paused = False
+        self.start_pause_btn.setText("Pause")

@@ -1,6 +1,8 @@
 # Blitzit_App/widgets/reporting_dialog.py
-from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QGridLayout, QLabel, QFrame # <--- QWidget ADDED HERE
+from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QGridLayout, QLabel, QFrame
 from PyQt6.QtGui import QFont
+from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg as FigureCanvas
+from matplotlib.figure import Figure
 
 class ReportingDialog(QDialog):
     """A dialog to display productivity statistics."""
@@ -33,10 +35,16 @@ class ReportingDialog(QDialog):
         trend_layout.addWidget(trend_title)
 
         if report_data['completion_trend']:
-            for row in report_data['completion_trend']:
-                date = row['completion_day']
-                count = row['count']
-                trend_layout.addWidget(QLabel(f"{date}: {'■' * count} ({count})"))
+            fig = Figure(figsize=(4,2))
+            canvas = FigureCanvas(fig)
+            ax = fig.add_subplot(111)
+            dates = [row['completion_day'] for row in report_data['completion_trend']]
+            counts = [row['count'] for row in report_data['completion_trend']]
+            ax.bar(dates, counts, color='#2ecc71')
+            ax.set_ylabel('Tasks')
+            ax.set_xlabel('Date')
+            fig.tight_layout()
+            trend_layout.addWidget(canvas)
         else:
             trend_layout.addWidget(QLabel("No tasks completed in the last 7 days."))
 
