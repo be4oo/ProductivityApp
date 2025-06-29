@@ -28,7 +28,7 @@ def parse_time_string_to_minutes(time_str: str) -> int:
 
 class TaskWidget(QFrame):
     task_completed = pyqtSignal(int); task_deleted = pyqtSignal(int); task_edit_requested = pyqtSignal(int)
-    focus_requested = pyqtSignal(int); task_reopened = pyqtSignal(int)
+    focus_requested = pyqtSignal(int); task_reopened = pyqtSignal(int); task_archived = pyqtSignal(int) # New signal
 
     def __init__(self, task):
         super().__init__(); self.task_id = task['id']; self.setObjectName("TaskWidget"); self.column_name = task['column']
@@ -62,10 +62,22 @@ class TaskWidget(QFrame):
         button_layout = QHBoxLayout(); button_layout.setContentsMargins(0, 8, 0, 0)
         if self.column_name == "Done":
             self.setProperty("class", "done-task")
-            reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open"); delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
-            reopen_btn.setObjectName("TaskActionButton"); delete_btn.setObjectName("TaskActionButton")
-            reopen_btn.clicked.connect(lambda: self.task_reopened.emit(self.task_id)); delete_btn.clicked.connect(lambda: self.task_deleted.emit(self.task_id))
-            button_layout.addStretch(); button_layout.addWidget(reopen_btn); button_layout.addWidget(delete_btn)
+            reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open")
+            archive_btn = QPushButton(qta.icon('fa5s.archive'), " Archive") # New Archive button
+            delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
+
+            reopen_btn.setObjectName("TaskActionButton")
+            archive_btn.setObjectName("TaskActionButton") # Set object name
+            delete_btn.setObjectName("TaskActionButton")
+
+            reopen_btn.clicked.connect(lambda: self.task_reopened.emit(self.task_id))
+            archive_btn.clicked.connect(lambda: self.task_archived.emit(self.task_id)) # Connect new signal
+            delete_btn.clicked.connect(lambda: self.task_deleted.emit(self.task_id))
+
+            button_layout.addStretch()
+            button_layout.addWidget(reopen_btn)
+            button_layout.addWidget(archive_btn) # Add button to layout
+            button_layout.addWidget(delete_btn)
         else:
             focus_btn = QPushButton(qta.icon('fa5s.play-circle'), ""); edit_btn = QPushButton(qta.icon('fa5s.pencil-alt'), "")
             done_btn = QPushButton(qta.icon('fa5s.check-circle'), " Done")
