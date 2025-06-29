@@ -80,45 +80,26 @@ def get_tasks_for_project(project_id):
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE project_id = ? AND status != "archived" ORDER BY priority ASC', (project_id,)).fetchall(); conn.close(); return tasks
 def get_all_tasks_from_all_projects():
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE status != "archived" ORDER BY project_id, priority ASC').fetchall(); conn.close(); return tasks
-def add_task(title, notes, project_id, column, est_time, task_type, task_priority, due_date=None, recurrence=None):
+def add_task(title, notes, project_id, column, est_time, task_type, task_priority, due_date=None):
     conn = get_db_connection()
     max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
-    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority, due_date, recurrence) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
-                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1, due_date, recurrence))
+    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority, due_date) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1, due_date))
     conn.commit(); conn.close()
-def update_task_details(task_id, title, notes, est_time, task_type, task_priority, due_date=None, recurrence=None):
+def update_task_details(task_id, title, notes, est_time, task_type, task_priority, due_date=None):
     conn = get_db_connection()
     conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ?, due_date = ? WHERE id = ?',
                  (title, notes, est_time, task_type, task_priority, due_date, task_id))
     conn.commit(); conn.close()
 def update_task_column(task_id, new_column):
+    pass
 
-    conn = get_db_connection()
-    conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ?, due_date = ?, recurrence = ? WHERE id = ?',
-                 (title, notes, est_time, task_type, task_priority, due_date, recurrence, task_id))
-    conn.commit(); conn.close()
+    # This duplicate definition is not needed and is invalid. Remove it.
 def update_task_column(task_id, new_column):
     conn = get_db_connection()
     if new_column == "Done":
-        cursor = conn.execute('SELECT * FROM tasks WHERE id = ?', (task_id,))
-        task = cursor.fetchone()
         conn.execute('UPDATE tasks SET column = ?, completed_at = ? WHERE id = ?', (new_column, datetime.now(), task_id))
         conn.commit()
-        if task and task['recurrence']:
-            next_due = None
-            if task['due_date']:
-                try:
-                    dt = datetime.fromisoformat(task['due_date'])
-                except ValueError:
-                    dt = None
-                if dt:
-                    if task['recurrence'] == 'Daily':
-                        next_due = (dt + timedelta(days=1)).isoformat()
-                    elif task['recurrence'] == 'Weekly':
-                        next_due = (dt + timedelta(weeks=1)).isoformat()
-                    elif task['recurrence'] == 'Monthly':
-                        next_due = (dt + timedelta(days=30)).isoformat()
-            add_task(task['title'], task['notes'], task['project_id'], 'Backlog', task['estimated_time'], task['task_type'], task['task_priority'], next_due, task['recurrence'])
     else:
         conn.execute('UPDATE tasks SET column = ?, completed_at = NULL, priority = 999 WHERE id = ?', (new_column, task_id))
         conn.commit()

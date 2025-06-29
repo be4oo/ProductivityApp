@@ -532,7 +532,7 @@ class BlitzitApp(QMainWindow):
             task_data = dialog.get_task_data()
             if task_data["title"]:
 
-                database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"], recurrence=task_data["recurrence"])
+                database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"])
 
                 self.refresh_all_views()
     
@@ -545,7 +545,7 @@ class BlitzitApp(QMainWindow):
             updated_data = dialog.get_updated_data()
             if updated_data["title"]:
 
-                database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"], updated_data["recurrence"])
+                database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"])
                 self.refresh_all_views()
     
     def open_reporting_dialog(self):
