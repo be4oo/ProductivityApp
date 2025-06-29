@@ -16,6 +16,7 @@ from widgets.column_widget import DropColumn
 from widgets.eisenhower_widget import EisenhowerMatrix, QuadrantWidget
 from widgets.floating_widget import FloatingWidget
 from widgets.today_list_widget import TodayListWidget
+from widgets.welcome_dialog import WelcomeDialog
 
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
 CONFIG_FILE = "config.json"
@@ -24,9 +25,14 @@ def load_config():
     """Loads the configuration file (e.g., for theme choice)."""
     try:
         with open(CONFIG_FILE, 'r') as f:
-            return json.load(f)
+            config = json.load(f)
+            if 'theme' not in config:
+                config['theme'] = 'dark'
+            if 'show_welcome' not in config:
+                config['show_welcome'] = True
+            return config
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"theme": "dark"} # Default to dark theme
+        return {"theme": "dark", "show_welcome": True}
 
 def save_config(config):
     """Saves the configuration file."""
@@ -168,8 +174,17 @@ class BlitzitApp(QMainWindow):
         self.celebration.hide()
         self.single_task_float.hide()
         self.today_list_float.hide()
-        
+
         self.load_projects()
+        self.show_welcome_if_needed()
+
+    def show_welcome_if_needed(self):
+        config = load_config()
+        if config.get("show_welcome", True):
+            dialog = WelcomeDialog(self)
+            if dialog.exec() and dialog.do_not_show_again():
+                config["show_welcome"] = False
+                save_config(config)
 
     def change_theme(self, theme_name):
         """Loads and applies a new theme stylesheet and saves the choice."""
