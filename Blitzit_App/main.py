@@ -286,6 +286,11 @@ class BlitzitApp(QMainWindow):
             task_widget = TaskWidget(task); task_widget.task_completed.connect(self.complete_task); task_widget.task_deleted.connect(self.delete_task)
             task_widget.task_edit_requested.connect(self.open_edit_task_dialog); task_widget.focus_requested.connect(self.start_focus_mode); task_widget.task_reopened.connect(self.reopen_task)
             if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
+
+        # Update task counts for all columns
+        for col_name in self.columns:
+            self.columns[col_name].update_task_count_display()
+
         active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
         self.matrix_view.populate_matrix(active_tasks)
 
@@ -326,6 +331,11 @@ class BlitzitApp(QMainWindow):
                 if source_container.column_name != new_column_name:
                     source_ids = [source_layout.itemAt(i).widget().task_id for i in range(source_layout.count())]
                     database.update_task_order(source_ids)
+
+                # Update task counts for affected columns
+                self.columns[new_column_name].update_task_count_display()
+                if source_container.column_name != new_column_name:
+                    self.columns[source_container.column_name].update_task_count_display()
             else:
                 # Fallback to a full refresh if something goes wrong
                 self.refresh_all_views()
@@ -398,7 +408,9 @@ class BlitzitApp(QMainWindow):
     def reopen_task(self, task_id): database.update_task_column(task_id, "Today"); self.refresh_all_views()
     
     def complete_task(self, task_id):
-        database.update_task_column(task_id, "Done"); self.celebration.show_celebration()
+        database.update_task_column(task_id, "Done")
+        self.refresh_all_views() # Refresh to update counts and UI state
+        self.celebration.show_celebration()
 
     def open_add_task_dialog(self):
         if self.current_project_id is None or self.current_project_id == -1: QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task."); return
