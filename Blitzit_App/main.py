@@ -2,11 +2,12 @@
 import sys, os, json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
-                             QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
+                             QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog,
+                             QSystemTrayIcon) # Added QSystemTrayIcon
 from PyQt6.QtCore import Qt, QTimer, QDateTime # Added QDateTime
 from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
 import qtawesome as qta
-from plyer import notification as plyer_notification # For desktop notifications
+# from plyer import notification as plyer_notification # For desktop notifications - REMOVED
 from datetime import datetime, timedelta # For comparing dates and times, and timedelta for test task
 
 import database
@@ -172,7 +173,25 @@ class BlitzitApp(QMainWindow):
         self.today_list_float.hide()
         
         self.load_projects()
-        # self.setup_reminder_timer() # Will be called if GUI runs
+        self.setup_tray_icon() # Initialize QSystemTrayIcon
+        self.setup_reminder_timer_if_gui_possible() # Renamed and conditional
+
+
+    def setup_tray_icon(self):
+        if QApplication.instance() and QSystemTrayIcon.isSystemTrayAvailable():
+            self.tray_icon = QSystemTrayIcon(QIcon("assets/icon.png"), self)
+            self.tray_icon.setToolTip("Blitzit Productivity Hub")
+            # You can add a context menu to the tray icon here if needed
+            # menu = QMenu(self)
+            # exit_action = menu.addAction("Exit")
+            # exit_action.triggered.connect(QApplication.instance().quit)
+            # self.tray_icon.setContextMenu(menu)
+            self.tray_icon.show()
+            print("System tray icon initialized.")
+        else:
+            self.tray_icon = None
+            print("System tray not available or QApplication not instantiated.")
+
 
     # Reminder logic will be tested via standalone function for now
     # def setup_reminder_timer(self):
@@ -277,16 +296,19 @@ def standalone_check_for_reminders():
                     message_notes = task['notes'] if task['notes'] is not None else ''
                     notification_message = (message_notes[:47] + "...") if len(message_notes) > 50 else (message_notes if message_notes else 'Task due!')
 
-                    plyer_notification.notify(
-                        title=f"Blitzit Reminder: {task['title']}",
-                        message=notification_message,
-                        app_name="Blitzit Productivity Hub",
-                        timeout=10
-                    )
+                    # Placeholder for QSystemTrayIcon.showMessage or alternative
+                    print(f"STANDALONE DEBUG: Would show notification for: {task['title']} - Message: {notification_message}")
+                    # plyer_notification.notify( # REMOVED
+                    #     title=f"Blitzit Reminder: {task['title']}",
+                    #     message=notification_message,
+                    #     app_name="Blitzit Productivity Hub",
+                    #     timeout=10
+                    # )
                     print(f"STANDALONE DEBUG: Notification attempt for task {task['id']}: {task['title']}")
                     notified_task_ids_standalone.add(task['id']) # Ensure task['id'] is the actual integer ID
                 except Exception as e_notify:
-                    print(f"STANDALONE DEBUG: Error sending notification for task {task['id']}: {e_notify}")
+                    # This exception handling might change depending on the new notification method
+                    print(f"STANDALONE DEBUG: Error preparing/sending notification for task {task['id']}: {e_notify}")
             else:
                 print(f"STANDALONE DEBUG: Reminder NOT YET DUE for task: {task['title']} (ID: {task['id']}). Due: {reminder_time}, Now: {now}")
 
@@ -453,11 +475,39 @@ class BlitzitApp(QMainWindow):
         # and potentially interacting with GUI elements if needed in a real scenario.
         tasks_with_reminders = database.get_all_tasks_from_all_projects()
         now = datetime.now()
+        if not hasattr(self, 'notified_task_ids_gui'): # Ensure the set exists
+            self.notified_task_ids_gui = set()
+
         for task in tasks_with_reminders:
             if task['reminder_at'] and task['id'] not in self.notified_task_ids_gui and task['column'] != 'Done':
-                # ... (parsing and notification logic as in standalone_check_for_reminders)
-                # Use self.notified_task_ids_gui
-                pass # Placeholder for the actual logic
+                reminder_time_str = task['reminder_at']
+                reminder_time = None
+                if isinstance(reminder_time_str, str):
+                    try:
+                        reminder_time = datetime.strptime(reminder_time_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                    except ValueError: continue # Skip if parsing fails
+                elif isinstance(reminder_time_str, datetime):
+                    reminder_time = reminder_time_str
+                else: continue # Skip unknown type
+
+                if reminder_time and reminder_time <= now:
+                    print(f"GUI DEBUG: Reminder DUE for task: {task['title']} (ID: {task['id']})")
+                    if self.tray_icon and self.tray_icon.isVisible():
+                        message_notes = task['notes'] if task['notes'] is not None else ''
+                        notification_message = (message_notes[:47] + "...") if len(message_notes) > 50 else (message_notes if message_notes else 'Task due!')
+                        self.tray_icon.showMessage(
+                            f"Blitzit Reminder: {task['title']}",
+                            notification_message,
+                            QSystemTrayIcon.MessageIcon.Information, # Use enum member
+                            10000  # milliseconds
+                        )
+                        print(f"GUI DEBUG: QSystemTrayIcon notification attempt for task {task['id']}: {task['title']}")
+                        self.notified_task_ids_gui.add(task['id'])
+                    else:
+                        print(f"GUI DEBUG: Tray icon not available or visible, cannot send notification for task {task['id']}")
+                        # Fallback or logging if tray icon isn't working
+                        # For now, just add to notified_task_ids_gui to prevent re-processing if tray becomes available later.
+                        self.notified_task_ids_gui.add(task['id']) # Still mark as 'attempted' to notify
 
 
     def change_theme(self, theme_name):
