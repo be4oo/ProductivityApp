@@ -4,10 +4,10 @@ from PyQt6.QtWidgets import (
     QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
     QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog,
     QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog,
-    QSystemTrayIcon
+    QSystemTrayIcon, QCheckBox
 )
 from PyQt6.QtCore import Qt, QTimer
-from PyQt6.QtGui import QIcon, QAction, QFontDatabase  # <--- Import QFontDatabase
+from PyQt6.QtGui import QIcon, QAction, QFontDatabase
 from datetime import datetime, timedelta
 import qtawesome as qta
 
@@ -38,9 +38,11 @@ def load_config():
                 config['theme'] = 'dark'
             if 'show_welcome' not in config:
                 config['show_welcome'] = True
+            if 'enable_task_reminders' not in config:
+                config['enable_task_reminders'] = True  # Default to True
             return config
     except (FileNotFoundError, json.JSONDecodeError):
-        return {"theme": "dark", "show_welcome": True}
+        return {"theme": "dark", "show_welcome": True, "enable_task_reminders": True}
 
 def save_config(config):
     """Saves the configuration file."""
@@ -120,6 +122,13 @@ class BlitzitApp(QMainWindow):
         self.add_task_btn.clicked.connect(self.open_add_task_dialog)
         self.reports_btn = QPushButton(qta.icon('fa5s.chart-line'), " View Reports")
         self.reports_btn.clicked.connect(self.open_reporting_dialog)
+
+        # --- Settings Section ---
+        settings_label = QLabel("Settings")
+        settings_label.setObjectName("ColumnTitle")
+        self.reminders_checkbox = QCheckBox("Enable Task Reminders")
+        self.reminders_checkbox.setChecked(load_config().get('enable_task_reminders', True))
+        self.reminders_checkbox.stateChanged.connect(self.toggle_task_reminders)
         
         left_panel_layout.addWidget(projects_title)
         left_panel_layout.addWidget(self.project_list_widget)
@@ -133,6 +142,9 @@ class BlitzitApp(QMainWindow):
         left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         left_panel_layout.addWidget(theme_label)
         left_panel_layout.addLayout(theme_button_layout)
+        left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        left_panel_layout.addWidget(settings_label) # Add settings label
+        left_panel_layout.addWidget(self.reminders_checkbox) # Add checkbox
         left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
         left_panel_layout.addWidget(actions_label)
         left_panel_layout.addWidget(self.add_task_btn)
@@ -200,7 +212,21 @@ class BlitzitApp(QMainWindow):
         self.notified_task_ids = set()
         self.notification_timer = QTimer(self)
         self.notification_timer.timeout.connect(self.check_due_tasks)
-        self.notification_timer.start(60_000)
+        # Start timer only if reminders are enabled in config
+        if load_config().get('enable_task_reminders', True):
+            self.notification_timer.start(60_000)
+
+    def toggle_task_reminders(self, state):
+        config = load_config()
+        config['enable_task_reminders'] = bool(state)
+        save_config(config)
+        if bool(state):
+            if not self.notification_timer.isActive():
+                self.notification_timer.start(60_000)
+                self.notified_task_ids.clear() # Clear old notifications so they can re-trigger if still relevant
+        else:
+            if self.notification_timer.isActive():
+                self.notification_timer.stop()
 
     def show_welcome_if_needed(self):
         config = load_config()
