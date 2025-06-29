@@ -465,7 +465,7 @@ if __name__ == "__main__":
                 QFontDatabase.addApplicationFont(os.path.join(font_dir, font_file))
 
     # --- THEME LOADING LOGIC ---
-    # database.migrate_database() 
+    database.migrate_database() 
     app.setWindowIcon(QIcon("assets/icon.png"))
     config = load_config()
     stylesheet = load_stylesheet(config.get("theme", "dark"))
