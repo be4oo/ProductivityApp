@@ -1,4 +1,5 @@
-
-
-    "theme": "dark",
-    "show_welcome": false
+{
+  "theme": "dark",
+  "show_welcome": true,
+  "font_size": 10
+}
