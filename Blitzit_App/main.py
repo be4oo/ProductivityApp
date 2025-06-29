@@ -538,6 +538,10 @@ class BlitzitApp(QMainWindow):
         super().resizeEvent(event)
         self.celebration.setGeometry(self.rect())
 
+    def show_welcome_if_needed(self):
+        # TODO: Implement welcome dialog logic if needed
+        pass
+
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
