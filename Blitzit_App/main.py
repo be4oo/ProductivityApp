@@ -25,6 +25,7 @@ from widgets.welcome_dialog import WelcomeDialog
 from widgets.archive_view_widget import ArchivedTasksWidget # Import new widget
 from widgets.welcome_dialog import WelcomeDialog # Import from main/feature/column-task-count
 
+
 # --- CONFIG AND STYLESHEET MANAGEMENT ---
 CONFIG_FILE = os.path.join(os.path.dirname(__file__), "config.json")
 
@@ -193,7 +194,6 @@ class BlitzitApp(QMainWindow):
         self.load_projects()
         self.show_welcome_if_needed()
 
-
         # --- Task Reminder Notifications ---
         self.tray = QSystemTrayIcon(QIcon("assets/icon.png"), self)
         self.tray.show()
@@ -201,6 +201,14 @@ class BlitzitApp(QMainWindow):
         self.notification_timer = QTimer(self)
         self.notification_timer.timeout.connect(self.check_due_tasks)
         self.notification_timer.start(60_000)
+
+    def show_welcome_if_needed(self):
+        config = load_config()
+        if config.get("show_welcome", True):
+            dialog = WelcomeDialog(self)
+            if dialog.exec() and dialog.do_not_show_again():
+                config["show_welcome"] = False
+                save_config(config)
 
 
     def check_due_tasks(self):
@@ -497,7 +505,9 @@ class BlitzitApp(QMainWindow):
         if dialog.exec():
             task_data = dialog.get_task_data()
             if task_data["title"]:
-                database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"])
+
+                database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"], due_date=task_data["due_date"], recurrence=task_data["recurrence"])
+
                 self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
@@ -508,7 +518,8 @@ class BlitzitApp(QMainWindow):
         if dialog.exec():
             updated_data = dialog.get_updated_data()
             if updated_data["title"]:
-                database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"])
+
+                database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"], updated_data["due_date"], updated_data["recurrence"])
                 self.refresh_all_views()
     
     def open_reporting_dialog(self):
