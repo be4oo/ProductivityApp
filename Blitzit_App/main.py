@@ -300,11 +300,14 @@ class BlitzitApp(QMainWindow):
             archived_tasks = []
             if self.current_project_id == -1: # All Projects
                 archived_tasks = database.get_all_archived_tasks()
-                 # Optionally, enrich with project names if not already in task_data from DB
                 projects_map = {p['id']: p['name'] for p in database.get_all_projects()}
-                for task in archived_tasks: task['project_name'] = projects_map.get(task['project_id'])
+                # Convert sqlite3.Row to dict before assignment
+                archived_tasks = [dict(task) for task in archived_tasks]
+                for task in archived_tasks:
+                    task['project_name'] = projects_map.get(task['project_id'])
             elif self.current_project_id is not None: # Specific Project
                 archived_tasks = database.get_archived_tasks_for_project(self.current_project_id)
+                archived_tasks = [dict(task) for task in archived_tasks]
 
             self.archive_view.populate_archived_tasks(archived_tasks)
             self.add_task_btn.setEnabled(False) # Can't add tasks in archive view
@@ -318,8 +321,9 @@ class BlitzitApp(QMainWindow):
             elif self.current_project_id is not None:
                 tasks_to_display = database.get_tasks_for_project(self.current_project_id)
                 self.add_task_btn.setEnabled(True)
-            else: # No project selected (e.g. initial state if on_project_selected hasn't run)
-                 self.add_task_btn.setEnabled(False)
+            else:
+                tasks_to_display = []
+                self.add_task_btn.setEnabled(False)
 
 
             self.clear_all_columns()
@@ -328,19 +332,19 @@ class BlitzitApp(QMainWindow):
             for task in tasks_to_display:
                 task_widget = TaskWidget(task)
                 task_widget.task_completed.connect(self.complete_task)
-            task_widget.task_deleted.connect(self.delete_task)
-            task_widget.task_edit_requested.connect(self.open_edit_task_dialog)
-            task_widget.focus_requested.connect(self.start_focus_mode)
-            task_widget.task_reopened.connect(self.reopen_task)
-            task_widget.task_archived.connect(self.handle_archive_task_request) # Connect new signal
-            if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
+                task_widget.task_deleted.connect(self.delete_task)
+                task_widget.task_edit_requested.connect(self.open_edit_task_dialog)
+                task_widget.focus_requested.connect(self.start_focus_mode)
+                task_widget.task_reopened.connect(self.reopen_task)
+                task_widget.task_archived.connect(self.handle_archive_task_request) # Connect new signal
+                if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
 
-        # Update task counts for all columns
-        for col_name in self.columns:
-            self.columns[col_name].update_task_count_display()
+            # Update task counts for all columns
+            for col_name in self.columns:
+                self.columns[col_name].update_task_count_display()
 
-        active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
-        self.matrix_view.populate_matrix(active_tasks)
+            active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
+            self.matrix_view.populate_matrix(active_tasks)
 
     def clear_all_columns(self):
         for column in self.columns.values():
