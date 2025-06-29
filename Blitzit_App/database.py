@@ -15,7 +15,17 @@ def migrate_database():
     conn = get_db_connection(); cursor = conn.cursor(); print("Running all database migrations...")
     cursor.execute("PRAGMA table_info(tasks)"); columns = [row['name'] for row in cursor.fetchall()]
     if 'completed_at' not in columns: cursor.execute("ALTER TABLE tasks ADD COLUMN completed_at TIMESTAMP")
+    if 'recurrence' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN recurrence TEXT")
+        print("- 'recurrence' column added to 'tasks' table.")
+    if 'reminder_enabled' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN reminder_enabled INTEGER DEFAULT 0")
+        print("- 'reminder_enabled' column added to 'tasks' table.")
+    if 'goal_id' not in columns:
+        cursor.execute("ALTER TABLE tasks ADD COLUMN goal_id INTEGER REFERENCES goals(id)")
+        print("- 'goal_id' column added to 'tasks' table.")
     cursor.execute("CREATE TABLE IF NOT EXISTS projects (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL UNIQUE, color TEXT)")
+    cursor.execute("CREATE TABLE IF NOT EXISTS goals (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT NOT NULL, description TEXT)")
     # *** NEW: Add color column to projects table if it doesn't exist ***
     cursor.execute("PRAGMA table_info(projects)")
     project_columns = [row['name'] for row in cursor.fetchall()]
@@ -65,18 +75,50 @@ def delete_project(project_id):
     conn.close()
 
 
+# --- GOAL MANAGEMENT FUNCTIONS ---
+def get_all_goals():
+    conn = get_db_connection()
+    goals = conn.execute('SELECT * FROM goals ORDER BY id ASC').fetchall()
+    conn.close()
+    return goals
+
+def add_goal(name, description=""):
+    conn = get_db_connection()
+    conn.execute('INSERT INTO goals (name, description) VALUES (?, ?)', (name, description))
+    conn.commit()
+    conn.close()
+
+def delete_goal(goal_id):
+    conn = get_db_connection()
+    with conn:
+        conn.execute('UPDATE tasks SET goal_id = NULL WHERE goal_id = ?', (goal_id,))
+        conn.execute('DELETE FROM goals WHERE id = ?', (goal_id,))
+    conn.close()
+
+
 # --- TASK FUNCTIONS (unchanged) ---
 def get_tasks_for_project(project_id):
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE project_id = ? AND status != "archived" ORDER BY priority ASC', (project_id,)).fetchall(); conn.close(); return tasks
 def get_all_tasks_from_all_projects():
     conn = get_db_connection(); tasks = conn.execute('SELECT * FROM tasks WHERE status != "archived" ORDER BY project_id, priority ASC').fetchall(); conn.close(); return tasks
-def add_task(title, notes, project_id, column, est_time, task_type, task_priority):
+def add_task(title, notes, project_id, column, est_time, task_type, task_priority,
+             recurrence=None, reminder_enabled=False, goal_id=None):
     conn = get_db_connection(); max_priority = conn.execute('SELECT MAX(priority) FROM tasks WHERE column = ? AND project_id = ?', (column, project_id)).fetchone()[0] or 0
-    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-                 (title, notes, project_id, column, est_time, task_type, task_priority, max_priority + 1)); conn.commit(); conn.close()
-def update_task_details(task_id, title, notes, est_time, task_type, task_priority):
-    conn = get_db_connection(); conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ? WHERE id = ?',
-                 (title, notes, est_time, task_type, task_priority, task_id)); conn.commit(); conn.close()
+    conn.execute('INSERT INTO tasks (title, notes, project_id, column, estimated_time, task_type, task_priority, recurrence, reminder_enabled, goal_id, priority) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                 (title, notes, project_id, column, est_time, task_type, task_priority, recurrence, int(reminder_enabled), goal_id, max_priority + 1));
+    conn.commit(); conn.close()
+
+def get_goal_by_name(name):
+    conn = get_db_connection()
+    goal = conn.execute('SELECT * FROM goals WHERE name = ?', (name,)).fetchone()
+    conn.close()
+    return goal
+def update_task_details(task_id, title, notes, est_time, task_type, task_priority,
+                        recurrence=None, reminder_enabled=False, goal_id=None):
+    conn = get_db_connection();
+    conn.execute('UPDATE tasks SET title = ?, notes = ?, estimated_time = ?, task_type = ?, task_priority = ?, recurrence = ?, reminder_enabled = ?, goal_id = ? WHERE id = ?',
+                 (title, notes, est_time, task_type, task_priority, recurrence, int(reminder_enabled), goal_id, task_id));
+    conn.commit(); conn.close()
 def update_task_column(task_id, new_column):
     conn = get_db_connection()
     if new_column == "Done": conn.execute('UPDATE tasks SET column = ?, completed_at = ? WHERE id = ?', (new_column, datetime.now(), task_id))

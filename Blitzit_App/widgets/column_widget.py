@@ -23,7 +23,12 @@ class DropColumn(QFrame):
 
     def dragEnterEvent(self, event):
         if event.mimeData().hasFormat("text/plain"):
+            self.setStyleSheet("background-color: rgba(0,0,0,0.05);")
             event.acceptProposedAction()
+
+    def dragLeaveEvent(self, event):
+        self.setStyleSheet("")
+        super().dragLeaveEvent(event)
     
     def dropEvent(self, event):
         """This event is fired when the item is dropped."""
@@ -39,4 +44,5 @@ class DropColumn(QFrame):
         
         # Emit our custom signal with all the data
         self.task_dropped.emit(task_id, self.column_name, insert_pos)
+        self.setStyleSheet("")
         event.acceptProposedAction()
