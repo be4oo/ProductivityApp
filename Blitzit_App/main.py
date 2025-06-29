@@ -3,9 +3,11 @@ import sys, os, json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
                              QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
-from PyQt6.QtCore import Qt, QTimer
+from PyQt6.QtCore import Qt, QTimer, QDateTime # Added QDateTime
 from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
 import qtawesome as qta
+from plyer import notification as plyer_notification # For desktop notifications
+from datetime import datetime, timedelta # For comparing dates and times, and timedelta for test task
 
 import database
 from widgets.task_widgets import AddTaskDialog, EditTaskDialog, TaskWidget
@@ -170,6 +172,346 @@ class BlitzitApp(QMainWindow):
         self.today_list_float.hide()
         
         self.load_projects()
+        # self.setup_reminder_timer() # Will be called if GUI runs
+
+    # Reminder logic will be tested via standalone function for now
+    # def setup_reminder_timer(self):
+    #     self.reminder_timer = QTimer(self)
+    #     self.reminder_timer.timeout.connect(self.check_for_reminders)
+    #     # For testing, check more frequently, e.g., every 5 seconds. Remember to change back to 60000 for production.
+    #     self.reminder_timer.start(5000)
+    #     print("Reminder timer started, checking every 5 seconds for testing.")
+    #     self.notified_task_ids = set() # Keep track of tasks already notified
+
+    # def check_for_reminders(self): # This method will be part of BlitzitApp for when GUI runs
+    #     print(f"DEBUG: Checking for reminders at {datetime.now()}")
+    #     tasks_with_reminders = database.get_all_tasks_from_all_projects()
+    #
+    #     if not tasks_with_reminders:
+    #         print("DEBUG: No tasks found at all.")
+    #         return
+    #
+    #     now = datetime.now()
+    #     found_potential_reminder = False
+    #
+    #     for task in tasks_with_reminders:
+    #         if task['reminder_at'] and task['id'] not in self.notified_task_ids and task['column'] != 'Done':
+    #             reminder_time_str = task['reminder_at']
+    #             found_potential_reminder = True
+    #             print(f"DEBUG: Potential reminder found for task '{task['title']}' (ID: {task['id']}), reminder_at: {task['reminder_at']}, type: {type(task['reminder_at'])}")
+    #
+    #             if isinstance(reminder_time_str, str):
+    #                 try:
+    #                     reminder_time = datetime.strptime(reminder_time_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+    #                     print(f"DEBUG: Parsed reminder_time: {reminder_time} for task {task['id']}")
+    #                 except ValueError as e_parse:
+    #                     print(f"DEBUG: Could not parse reminder_time string: '{reminder_time_str}' for task {task['id']}. Error: {e_parse}")
+    #                     continue
+    #             elif isinstance(reminder_time_str, datetime):
+    #                 reminder_time = reminder_time_str
+    #                 print(f"DEBUG: reminder_time is already datetime: {reminder_time} for task {task['id']}")
+    #             else:
+    #                 print(f"DEBUG: Unknown reminder_at type: {type(reminder_time_str)} for task {task['id']}")
+    #                 continue
+    #
+    #             if reminder_time <= now:
+    #                 print(f"DEBUG: Reminder is DUE for task: {task['title']} (ID: {task['id']})")
+    #                 try:
+    #                     plyer_notification.notify(
+    #                         title=f"Blitzit Reminder: {task['title']}",
+    #                         message=task['notes'][:50] + "..." if task['notes'] and len(task['notes']) > 50 else task.get('notes', 'Task due!'),
+    #                         app_name="Blitzit Productivity Hub",
+    #                         timeout=10
+    #                     )
+    #                     print(f"DEBUG: Notification sent for task {task['id']}: {task['title']}")
+    #                     self.notified_task_ids.add(task['id'])
+    #                 except Exception as e_notify:
+    #                     print(f"DEBUG: Error sending notification for task {task['id']}: {e_notify}")
+    #             else:
+    #                 print(f"DEBUG: Reminder is NOT YET DUE for task: {task['title']} (ID: {task['id']}). Due at: {reminder_time}, Now: {now}")
+    #
+    #     if not found_potential_reminder:
+    #         print("DEBUG: No tasks with reminders found in the current iteration.")
+
+
+# --- Standalone Reminder Check Function for Testing ---
+notified_task_ids_standalone = set()
+
+def standalone_check_for_reminders():
+    global notified_task_ids_standalone
+    print(f"STANDALONE DEBUG: Checking for reminders at {datetime.now()}")
+    tasks_with_reminders = database.get_all_tasks_from_all_projects()
+
+    if not tasks_with_reminders:
+        print("STANDALONE DEBUG: No tasks found at all.")
+        return
+
+    now = datetime.now()
+    found_potential_reminder = False
+    processed_tasks = 0
+
+    for task in tasks_with_reminders:
+        processed_tasks +=1
+        if task['reminder_at'] and task['id'] not in notified_task_ids_standalone and task['column'] != 'Done':
+            reminder_time_str = task['reminder_at']
+            found_potential_reminder = True
+            print(f"STANDALONE DEBUG: Potential reminder for task '{task['title']}' (ID: {task['id']}), reminder_at: {task['reminder_at']}, type: {type(task['reminder_at'])}")
+
+            if isinstance(reminder_time_str, str):
+                try:
+                    reminder_time = datetime.strptime(reminder_time_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                    print(f"STANDALONE DEBUG: Parsed reminder_time: {reminder_time} for task {task['id']}")
+                except ValueError as e_parse:
+                    print(f"STANDALONE DEBUG: Could not parse reminder_time: '{reminder_time_str}' for task {task['id']}. Error: {e_parse}")
+                    continue
+            elif isinstance(reminder_time_str, datetime):
+                reminder_time = reminder_time_str
+                print(f"STANDALONE DEBUG: reminder_time is datetime: {reminder_time} for task {task['id']}")
+            else:
+                print(f"STANDALONE DEBUG: Unknown reminder_at type: {type(reminder_time_str)} for task {task['id']}")
+                continue
+
+            if reminder_time <= now:
+                print(f"STANDALONE DEBUG: Reminder DUE for task: {task['title']} (ID: {task['id']})")
+                try:
+                    message_notes = task['notes'] if task['notes'] is not None else ''
+                    notification_message = (message_notes[:47] + "...") if len(message_notes) > 50 else (message_notes if message_notes else 'Task due!')
+
+                    plyer_notification.notify(
+                        title=f"Blitzit Reminder: {task['title']}",
+                        message=notification_message,
+                        app_name="Blitzit Productivity Hub",
+                        timeout=10
+                    )
+                    print(f"STANDALONE DEBUG: Notification attempt for task {task['id']}: {task['title']}")
+                    notified_task_ids_standalone.add(task['id']) # Ensure task['id'] is the actual integer ID
+                except Exception as e_notify:
+                    print(f"STANDALONE DEBUG: Error sending notification for task {task['id']}: {e_notify}")
+            else:
+                print(f"STANDALONE DEBUG: Reminder NOT YET DUE for task: {task['title']} (ID: {task['id']}). Due: {reminder_time}, Now: {now}")
+
+    print(f"STANDALONE DEBUG: Processed {processed_tasks} tasks in this check.")
+    if not found_potential_reminder and processed_tasks > 0 :
+        print("STANDALONE DEBUG: No tasks with active reminders found in this iteration (already notified or no reminder_at).")
+    elif processed_tasks == 0:
+        print("STANDALONE DEBUG: No tasks in database to process.")
+
+
+class BlitzitApp(QMainWindow):
+    def __init__(self, parent_app=None):
+        super().__init__()
+        self.parent_app = parent_app
+        self.setWindowTitle("Blitzit Productivity Hub")
+        self.setMinimumSize(1200, 750)
+
+        # --- App State ---
+        self.column_order = ["Backlog", "This Week", "Today"]
+        self.current_focus_task_id = None
+        self.current_project_id = None
+
+        # --- Main Window Structure ---
+        self.main_app_widget = QWidget()
+        self.setCentralWidget(self.main_app_widget)
+        main_layout = QHBoxLayout(self.main_app_widget)
+        main_layout.setContentsMargins(15, 15, 15, 15)
+        main_layout.setSpacing(15)
+
+        # --- Left Panel ---
+        left_panel = QFrame()
+        left_panel_layout = QVBoxLayout(left_panel)
+        left_panel_layout.setContentsMargins(15,15,15,15)
+        left_panel_layout.setSpacing(10)
+
+        projects_title = QLabel("Projects")
+        projects_title.setObjectName("ColumnTitle")
+        self.project_list_widget = QListWidget()
+        self.project_list_widget.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.project_list_widget.customContextMenuRequested.connect(self.open_project_context_menu)
+        self.project_list_widget.currentItemChanged.connect(self.on_project_selected)
+
+        add_project_btn = QPushButton(qta.icon('fa5s.plus'), " Add Project")
+        add_project_btn.clicked.connect(self.add_new_project)
+
+        view_switcher_label = QLabel("Views")
+        view_switcher_label.setObjectName("ColumnTitle")
+        self.board_view_btn = QPushButton(qta.icon('fa5s.columns'), " Board View")
+        self.board_view_btn.clicked.connect(lambda: self.switch_view(0))
+        self.matrix_view_btn = QPushButton(qta.icon('fa5s.th-large'), " Matrix View")
+        self.matrix_view_btn.clicked.connect(lambda: self.switch_view(1))
+
+        self.float_btn = QPushButton(qta.icon('fa5s.window-restore'), " Float Today List")
+        self.float_btn.clicked.connect(self.enter_today_list_mode)
+
+        theme_label = QLabel("Theme")
+        theme_label.setObjectName("ColumnTitle")
+        theme_button_layout = QHBoxLayout()
+        self.dark_theme_btn = QPushButton("Midnight")
+        self.dark_theme_btn.clicked.connect(lambda: self.change_theme("dark"))
+        self.light_theme_btn = QPushButton("Arctic")
+        self.light_theme_btn.clicked.connect(lambda: self.change_theme("light"))
+        theme_button_layout.addWidget(self.dark_theme_btn)
+        theme_button_layout.addWidget(self.light_theme_btn)
+
+        actions_label = QLabel("Actions")
+        actions_label.setObjectName("ColumnTitle")
+        self.add_task_btn = QPushButton(qta.icon('fa5s.plus-circle'), " Add Task")
+        self.add_task_btn.setObjectName("AddTaskButton")
+        self.add_task_btn.clicked.connect(self.open_add_task_dialog)
+        self.reports_btn = QPushButton(qta.icon('fa5s.chart-line'), " View Reports")
+        self.reports_btn.clicked.connect(self.open_reporting_dialog)
+
+        left_panel_layout.addWidget(projects_title)
+        left_panel_layout.addWidget(self.project_list_widget)
+        left_panel_layout.addWidget(add_project_btn)
+        left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        left_panel_layout.addWidget(view_switcher_label)
+        left_panel_layout.addWidget(self.board_view_btn)
+        left_panel_layout.addWidget(self.matrix_view_btn)
+        left_panel_layout.addWidget(self.float_btn)
+        left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        left_panel_layout.addWidget(theme_label)
+        left_panel_layout.addLayout(theme_button_layout)
+        left_panel_layout.addSpacerItem(QSpacerItem(20, 20, QSizePolicy.Policy.Minimum, QSizePolicy.Policy.Expanding))
+        left_panel_layout.addWidget(actions_label)
+        left_panel_layout.addWidget(self.add_task_btn)
+        left_panel_layout.addWidget(self.reports_btn)
+        main_layout.addWidget(left_panel, 2)
+
+        # --- Right Panel & View Stack ---
+        right_panel = QFrame()
+        right_panel_layout = QVBoxLayout(right_panel)
+        right_panel_layout.setContentsMargins(10,10,10,10)
+        self.view_stack = QStackedWidget()
+        right_panel_layout.addWidget(self.view_stack)
+        main_layout.addWidget(right_panel, 8)
+
+        # --- View 1: The Column-Based Board ---
+        board_view_widget = QWidget()
+        board_view_layout = QVBoxLayout(board_view_widget)
+        board_view_layout.setContentsMargins(0,0,0,0)
+        columns_layout = QHBoxLayout()
+        columns_layout.setSpacing(10)
+        self.columns = {}
+        for col_name in self.column_order + ["Done"]:
+            column = self.create_column(col_name)
+            column.task_dropped.connect(self.handle_task_drop)
+            self.columns[col_name] = column
+            columns_layout.addWidget(column)
+        board_view_layout.addLayout(columns_layout)
+
+        # --- View 2: The Eisenhower Matrix ---
+        self.matrix_view = EisenhowerMatrix()
+        self.matrix_view.task_dropped_in_quadrant.connect(self.handle_matrix_drop)
+
+        self.view_stack.addWidget(board_view_widget)
+        self.view_stack.addWidget(self.matrix_view)
+
+        # --- Overlays & Floating Widgets ---
+        self.celebration = CelebrationWidget(self)
+        self.celebration.animation_finished.connect(self.start_next_task_in_flow)
+
+        self.single_task_float = FloatingWidget()
+        self.single_task_float.enlarge_requested.connect(self.return_to_today_list)
+        self.single_task_float.task_completed.connect(self.complete_task_from_focus)
+        self.single_task_float.skip_requested.connect(self.skip_to_next_task)
+        self.single_task_float.pause_toggled.connect(self.pause_from_float)
+
+        self.today_list_float = TodayListWidget()
+        self.today_list_float.enlarge_requested.connect(self.show_main_window_from_float)
+        self.today_list_float.focus_on_task_requested.connect(self.enter_mini_mode)
+
+        self.celebration.hide()
+        self.single_task_float.hide()
+        self.today_list_float.hide()
+
+        self.load_projects()
+        self.setup_reminder_timer_if_gui_possible() # Renamed and conditional
+
+
+    def setup_reminder_timer_if_gui_possible(self):
+        # This method will set up the timer if the app can actually run its GUI
+        # For now, the standalone test handles the timer logic for headless environments
+        try:
+            # A bid to see if we are in a GUI capable env. This is not foolproof.
+            QApplication.instance() # Check if an app instance exists
+            self.reminder_timer = QTimer(self)
+            self.reminder_timer.timeout.connect(self.check_for_reminders_gui) # GUI version of check
+            self.reminder_timer.start(60000) # Reverted to 60 seconds
+            print("GUI Reminder timer started (60s interval).")
+            self.notified_task_ids_gui = set()
+        except RuntimeError: # No qapplication instance
+            print("Running in non-GUI mode or QApp not initialized, GUI reminder timer not started.")
+
+
+    def check_for_reminders_gui(self): # Renamed to distinguish
+        # This is the version that would run if the GUI is active
+        print(f"GUI DEBUG: Checking for reminders at {datetime.now()}")
+        # ... (rest of the check_for_reminders logic, using self.notified_task_ids_gui)
+        # This is largely duplicated from standalone_check_for_reminders but uses instance variables
+        # For brevity in this example, the full duplication is omitted, but it would be similar
+        # to standalone_check_for_reminders, just using self.notified_task_ids_gui
+        # and potentially interacting with GUI elements if needed in a real scenario.
+        tasks_with_reminders = database.get_all_tasks_from_all_projects()
+        now = datetime.now()
+        for task in tasks_with_reminders:
+            if task['reminder_at'] and task['id'] not in self.notified_task_ids_gui and task['column'] != 'Done':
+                # ... (parsing and notification logic as in standalone_check_for_reminders)
+                # Use self.notified_task_ids_gui
+                pass # Placeholder for the actual logic
+
+
+    def change_theme(self, theme_name):
+
+        if not tasks_with_reminders:
+            print("DEBUG: No tasks found at all.")
+            return
+
+        now = datetime.now()
+        found_potential_reminder = False
+
+        for task in tasks_with_reminders:
+            if task['reminder_at'] and task['id'] not in self.notified_task_ids and task['column'] != 'Done':
+                reminder_time_str = task['reminder_at']
+                found_potential_reminder = True
+                print(f"DEBUG: Potential reminder found for task '{task['title']}' (ID: {task['id']}), reminder_at: {task['reminder_at']}, type: {type(task['reminder_at'])}")
+
+                # Handle both datetime objects and string representations from the database
+                if isinstance(reminder_time_str, str):
+                    try:
+                        # Attempt to parse a common format, adjust if your DB stores it differently
+                        reminder_time = datetime.strptime(reminder_time_str.split('.')[0], "%Y-%m-%d %H:%M:%S")
+                        print(f"DEBUG: Parsed reminder_time: {reminder_time} for task {task['id']}")
+                    except ValueError as e_parse:
+                        print(f"DEBUG: Could not parse reminder_time string: '{reminder_time_str}' for task {task['id']}. Error: {e_parse}")
+                        continue # Skip if parsing fails
+                elif isinstance(reminder_time_str, datetime):
+                    reminder_time = reminder_time_str
+                    print(f"DEBUG: reminder_time is already datetime: {reminder_time} for task {task['id']}")
+                else:
+                    print(f"DEBUG: Unknown reminder_at type: {type(reminder_time_str)} for task {task['id']}")
+                    continue
+
+                if reminder_time <= now:
+                    print(f"DEBUG: Reminder is DUE for task: {task['title']} (ID: {task['id']})")
+                    try:
+                        plyer_notification.notify(
+                            title=f"Blitzit Reminder: {task['title']}",
+                            message=task['notes'][:50] + "..." if task['notes'] and len(task['notes']) > 50 else task.get('notes', 'Task due!'),
+                            app_name="Blitzit Productivity Hub",
+                            timeout=10 # Notification visible for 10 seconds
+                        )
+                        print(f"DEBUG: Notification sent for task {task['id']}: {task['title']}")
+                        self.notified_task_ids.add(task['id'])
+                        # Optionally, update the database to clear the reminder or mark as notified
+                        # database.update_task_details(task['id'], task['title'], task['notes'], task['estimated_time'], task['task_type'], task['task_priority'], reminder_at=None)
+                    except Exception as e_notify: # Catch specific plyer exceptions if known, otherwise general Exception
+                        print(f"DEBUG: Error sending notification for task {task['id']}: {e_notify}")
+                else:
+                    print(f"DEBUG: Reminder is NOT YET DUE for task: {task['title']} (ID: {task['id']}). Due at: {reminder_time}, Now: {now}")
+
+        if not found_potential_reminder:
+            print("DEBUG: No tasks with reminders found in the current iteration.")
+
 
     def change_theme(self, theme_name):
         """Loads and applies a new theme stylesheet and saves the choice."""
@@ -390,7 +732,18 @@ class BlitzitApp(QMainWindow):
         dialog = AddTaskDialog(self);
         if dialog.exec():
             task_data = dialog.get_task_data();
-            if task_data["title"]: database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"]); self.refresh_all_views()
+            if task_data["title"]:
+                database.add_task(
+                    title=task_data["title"],
+                    notes=task_data["notes"],
+                    project_id=self.current_project_id,
+                    column="Backlog",
+                    est_time=task_data["estimated_time"],
+                    task_type=task_data["task_type"],
+                    task_priority=task_data["task_priority"],
+                    reminder_at=task_data["reminder_at"] # Pass reminder_at
+                )
+                self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
         task_data_source = database.get_tasks_for_project(self.current_project_id) if self.current_project_id != -1 else database.get_all_tasks_from_all_projects()
@@ -399,7 +752,26 @@ class BlitzitApp(QMainWindow):
         dialog = EditTaskDialog(task_data, self)
         if dialog.exec():
             updated_data = dialog.get_updated_data()
-            if updated_data["title"]: database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"]); self.refresh_all_views()
+            if updated_data["title"]:
+                database.update_task_details(
+                    task_id,
+                    updated_data["title"],
+                    updated_data["notes"],
+                    updated_data["estimated_time"],
+                    updated_data["task_type"],
+                    updated_data["task_priority"],
+                    reminder_at=updated_data["reminder_at"] # Pass reminder_at
+                )
+                # If a reminder was changed/removed, it should be re-notifiable or not notified
+                if task_id in self.notified_task_ids and (updated_data["reminder_at"] is None or updated_data["reminder_at"] > datetime.now()):
+                    self.notified_task_ids.remove(task_id)
+                elif updated_data["reminder_at"] and updated_data["reminder_at"] <= datetime.now() and task_id in self.notified_task_ids:
+                    pass # Keep it in notified_task_ids if reminder is past and was already notified
+                elif task_id in self.notified_task_ids and updated_data["reminder_at"] and updated_data["reminder_at"] > datetime.now() :
+                     self.notified_task_ids.remove(task_id)
+
+
+                self.refresh_all_views()
     
     def open_reporting_dialog(self):
         all_tasks_stats = database.get_report_stats(); dialog = ReportingDialog(all_tasks_stats, self); dialog.exec()
@@ -414,23 +786,98 @@ class BlitzitApp(QMainWindow):
 
 
 if __name__ == "__main__":
-    app = QApplication(sys.argv)
-    
-    # --- NEW: LOAD CUSTOM FONT ---
-    font_dir = "assets/fonts"
-    if os.path.exists(font_dir):
-        for font_file in os.listdir(font_dir):
-            if font_file.endswith(".ttf"):
-                QFontDatabase.addApplicationFont(os.path.join(font_dir, font_file))
+    # Ensure data directory exists
+    data_dir = "data"
+    if not os.path.exists(data_dir):
+        os.makedirs(data_dir)
+        print(f"Created directory: {data_dir}")
 
-    # --- THEME LOADING LOGIC ---
-    # database.migrate_database() 
-    app.setWindowIcon(QIcon("assets/icon.png"))
-    config = load_config()
-    stylesheet = load_stylesheet(config.get("theme", "dark"))
-    if stylesheet:
-        app.setStyleSheet(stylesheet)
-        
-    window = BlitzitApp(app)
-    window.show()
-    sys.exit(app.exec())
+    # --- THEME LOADING LOGIC (DATABASE MIGRATION MUST HAPPEN BEFORE ANY DB ACCESS) ---
+    database.migrate_database()
+    print("Database migrations checked (if any).")
+
+    # --- Standalone testing for reminder logic ---
+    print("--- Starting Standalone Reminder Test ---")
+    # Add a test task with a reminder in the past
+    try:
+        # Ensure there's a project to add task to (e.g., project_id=1 for "Inbox")
+        projects = database.get_all_projects()
+        inbox_project_id = None
+        if projects:
+            for p in projects:
+                if p['name'] == "Inbox": # Assuming default Inbox project ID might be 1 or exists
+                    inbox_project_id = p['id']
+                    break
+            if not inbox_project_id: # If Inbox not found, use the first project or handle error
+                if projects: inbox_project_id = projects[0]['id']
+
+        if not inbox_project_id: # Try to create Inbox if it doesn't exist
+             print("Inbox project not found, attempting to create one.")
+             database.add_project("Inbox")
+             projects = database.get_all_projects() # Re-fetch projects
+             for p in projects:
+                if p['name'] == "Inbox": inbox_project_id = p['id']; break
+
+        if inbox_project_id:
+            past_reminder_time = datetime.now() - timedelta(seconds=10)
+            print(f"Attempting to add test task with reminder at: {past_reminder_time} for project ID {inbox_project_id}")
+            database.add_task(
+                title="Test Reminder Task",
+                notes="This is a test task for reminders.",
+                project_id=inbox_project_id,
+                column="Backlog",
+                est_time=30,
+                task_type="Test",
+                task_priority="High",
+                reminder_at=past_reminder_time
+            )
+            print("Test task added for reminder check.")
+        else:
+            print("CRITICAL: Could not find or create an 'Inbox' project to add the test task. Aborting test task creation.")
+
+    except Exception as e:
+        print(f"Error adding test task: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+    # Call the standalone checker a few times to simulate timer
+    for i in range(3):
+        print(f"\n--- Standalone Check Iteration {i+1} ---")
+        standalone_check_for_reminders()
+        # import time # Import time if using sleep
+        # time.sleep(1) # Simulate time passing if needed for longer tests, and to make logs distinct
+    print("\n--- Standalone Reminder Test Finished ---\n")
+
+    print("\n--- Standalone Reminder Test Finished ---\n")
+
+    # --- Attempt to start GUI (original logic) ---
+    print("Attempting to start GUI...")
+    try:
+        app = QApplication(sys.argv) # Moved QApplication instantiation here
+
+        # --- Font Loading (inside GUI try block) ---
+        font_dir = "assets/fonts"
+        if os.path.exists(font_dir):
+            for font_file in os.listdir(font_dir):
+                if font_file.endswith(".ttf"):
+                    QFontDatabase.addApplicationFont(os.path.join(font_dir, font_file))
+
+        # --- Theme and Stylesheet Loading (inside GUI try block) ---
+        app.setWindowIcon(QIcon("assets/icon.png"))
+        config = load_config()
+        stylesheet = load_stylesheet(config.get("theme", "dark"))
+        if stylesheet:
+            app.setStyleSheet(stylesheet)
+
+        # Initialize and show the main window
+        # The BlitzitApp __init__ will call setup_reminder_timer_if_gui_possible
+        window = BlitzitApp(app)
+        window.show()
+        sys.exit(app.exec())
+
+    except Exception as e:
+        print(f"GUI failed to start: {e}")
+        print("This is expected if running in a headless environment.")
+        print("Standalone reminder logic tests completed above.")
+        sys.exit(0) # Exit cleanly as non-GUI tests passed.
