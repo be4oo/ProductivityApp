@@ -1,11 +1,12 @@
 # Blitzit_App/main.py
 import sys, os, json
-from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
-                             QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
+from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel,
+                             QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog,
                              QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
 from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
 import qtawesome as qta
+import notifications
 
 import database
 from widgets.task_widgets import AddTaskDialog, EditTaskDialog, TaskWidget
@@ -41,6 +42,12 @@ def load_stylesheet(theme_name="dark"):
     except FileNotFoundError:
         print(f"Stylesheet '{file_name}' not found. Using default styles.")
         return ""
+
+def apply_font_scale(app, scale: float):
+    font = app.font()
+    size = font.pointSizeF() * scale
+    font.setPointSizeF(size)
+    app.setFont(font)
 
 class BlitzitApp(QMainWindow):
     def __init__(self, parent_app=None):
@@ -383,14 +390,36 @@ class BlitzitApp(QMainWindow):
     def reopen_task(self, task_id): database.update_task_column(task_id, "Today"); self.refresh_all_views()
     
     def complete_task(self, task_id):
-        database.update_task_column(task_id, "Done"); self.celebration.show_celebration()
+        database.update_task_column(task_id, "Done")
+        task = database.get_tasks_for_project(self.current_project_id)
+        task = next((t for t in task if t['id'] == task_id), None)
+        if task and task['recurrence']:
+            # Create the next recurring instance
+            database.add_task(task['title'], task['notes'], task['project_id'], 'Backlog',
+                             task['estimated_time'], task['task_type'], task['task_priority'],
+                             recurrence=task['recurrence'], reminder_enabled=bool(task['reminder_enabled']),
+                             goal_id=task['goal_id'])
+        self.celebration.show_celebration()
 
     def open_add_task_dialog(self):
         if self.current_project_id is None or self.current_project_id == -1: QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task."); return
         dialog = AddTaskDialog(self);
         if dialog.exec():
             task_data = dialog.get_task_data();
-            if task_data["title"]: database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"]); self.refresh_all_views()
+            if task_data["title"]:
+                database.add_task(
+                    title=task_data["title"],
+                    notes=task_data["notes"],
+                    project_id=self.current_project_id,
+                    column="Backlog",
+                    est_time=task_data["estimated_time"],
+                    task_type=task_data["task_type"],
+                    task_priority=task_data["task_priority"],
+                    recurrence=task_data["recurrence"],
+                    reminder_enabled=task_data["reminder_enabled"],
+                    goal_id=task_data["goal_id"],
+                )
+                self.refresh_all_views()
     
     def open_edit_task_dialog(self, task_id):
         task_data_source = database.get_tasks_for_project(self.current_project_id) if self.current_project_id != -1 else database.get_all_tasks_from_all_projects()
@@ -399,7 +428,19 @@ class BlitzitApp(QMainWindow):
         dialog = EditTaskDialog(task_data, self)
         if dialog.exec():
             updated_data = dialog.get_updated_data()
-            if updated_data["title"]: database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"]); self.refresh_all_views()
+            if updated_data["title"]:
+                database.update_task_details(
+                    task_id,
+                    updated_data["title"],
+                    updated_data["notes"],
+                    updated_data["estimated_time"],
+                    updated_data["task_type"],
+                    updated_data["task_priority"],
+                    recurrence=updated_data["recurrence"],
+                    reminder_enabled=updated_data["reminder_enabled"],
+                    goal_id=updated_data["goal_id"],
+                )
+                self.refresh_all_views()
     
     def open_reporting_dialog(self):
         all_tasks_stats = database.get_report_stats(); dialog = ReportingDialog(all_tasks_stats, self); dialog.exec()
@@ -430,6 +471,9 @@ if __name__ == "__main__":
     stylesheet = load_stylesheet(config.get("theme", "dark"))
     if stylesheet:
         app.setStyleSheet(stylesheet)
+    apply_font_scale(app, config.get("font_scale", 1.0))
+
+    notifications.init_notifications(app)
         
     window = BlitzitApp(app)
     window.show()

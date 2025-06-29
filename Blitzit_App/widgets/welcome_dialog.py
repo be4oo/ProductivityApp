@@ -8,9 +8,10 @@ class WelcomeDialog(QDialog):
         layout = QVBoxLayout(self)
         msg = (
             "<b>Welcome to Blitzit Productivity Hub!</b><br><br>"
-            "Use the <i>Board</i> view to organize tasks by column.\n"
-            "Switch to the <i>Matrix</i> view to prioritize them by urgency and importance.\n"
-            "Use <b>Blitz Now</b> to focus on tasks in your 'Today' list."
+            "Use the <i>Board</i> view to organize tasks by column.<br>"
+            "Switch to the <i>Matrix</i> view to prioritize them by urgency and importance.<br>"
+            "Use <b>Blitz Now</b> to focus on tasks in your 'Today' list.<br>"
+            "Tip: Adjust font size from Settings for better readability."
         )
         label = QLabel(msg)
         label.setWordWrap(True)
