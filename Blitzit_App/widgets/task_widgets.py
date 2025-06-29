@@ -51,24 +51,25 @@ class TaskWidget(QFrame):
         main_layout.addLayout(time_layout)
 
         # --- Display Reminder Info ---
-        if task.get('reminder_at') and self.column_name != "Done":
+        reminder_at = task['reminder_at'] if 'reminder_at' in task else None
+        if reminder_at and self.column_name != "Done":
             reminder_layout = QHBoxLayout()
             reminder_icon = QLabel(qta.icon('fa5s.bell', color='#FFA500')) # Orange bell icon
 
             reminder_qdt = QDateTime()
-            if isinstance(task['reminder_at'], str):
+            if isinstance(reminder_at, str):
                  # Try parsing from common string formats, including ISO with or without milliseconds
-                parsed_qdt = QDateTime.fromString(task['reminder_at'].split('.')[0], "yyyy-MM-dd HH:mm:ss")
+                parsed_qdt = QDateTime.fromString(reminder_at.split('.')[0], "yyyy-MM-dd HH:mm:ss")
                 if not parsed_qdt.isValid():
-                    parsed_qdt = QDateTime.fromString(task['reminder_at'], Qt.DateFormat.ISODate)
+                    parsed_qdt = QDateTime.fromString(reminder_at, Qt.DateFormat.ISODate)
                 if not parsed_qdt.isValid(): # Try another common format from SQLite
-                    parsed_qdt = QDateTime.fromString(task['reminder_at'], "yyyy-MM-dd HH:mm:ss.SSSSSS")
+                    parsed_qdt = QDateTime.fromString(reminder_at, "yyyy-MM-dd HH:mm:ss.SSSSSS")
                 reminder_qdt = parsed_qdt
-            elif isinstance(task['reminder_at'], QDateTime): # Already a QDateTime
-                reminder_qdt = task['reminder_at']
+            elif isinstance(reminder_at, QDateTime): # Already a QDateTime
+                reminder_qdt = reminder_at
             # Add other type checks if necessary e.g. Python datetime
-            elif hasattr(task['reminder_at'], 'strftime'): # Check if it's a Python datetime object
-                 reminder_qdt = QDateTime.fromString(task['reminder_at'].strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss")
+            elif hasattr(reminder_at, 'strftime'): # Check if it's a Python datetime object
+                 reminder_qdt = QDateTime.fromString(reminder_at.strftime("%Y-%m-%d %H:%M:%S"), "yyyy-MM-dd HH:mm:ss")
 
 
             if reminder_qdt.isValid() and not reminder_qdt.isNull():
@@ -160,22 +161,23 @@ class EditTaskDialog(QDialog):
         self.reminder_datetime_edit.setCalendarPopup(True)
         self.reminder_datetime_edit.setDisplayFormat("yyyy-MM-dd hh:mm ap")
 
-        if task_data.get('reminder_at'):
+        reminder_at = task_data['reminder_at'] if 'reminder_at' in task_data else None
+        if reminder_at:
             # Ensure reminder_at is a QDateTime object
-            reminder_qdatetime = QDateTime.fromString(str(task_data['reminder_at']).split('.')[0], "yyyy-MM-dd HH:mm:ss")
-            if not reminder_qdatetime.isValid(): # Fallback for different potential string formats
-                 reminder_qdatetime = QDateTime.fromString(str(task_data['reminder_at']), Qt.DateFormat.ISODate)
-
+            reminder_qdatetime = QDateTime.fromString(str(reminder_at).split('.')[0], "yyyy-MM-dd HH:mm:ss")
+            if not reminder_qdatetime.isValid():
+                reminder_qdatetime = QDateTime.fromString(str(reminder_at), Qt.DateFormat.ISODate)
             if reminder_qdatetime.isValid() and not reminder_qdatetime.isNull():
                 self.reminder_datetime_edit.setDateTime(reminder_qdatetime)
                 self.reminder_check.setChecked(True)
-                self.reminder_datetime_edit.setEnabled(True)
             else:
-                self.reminder_datetime_edit.setDateTime(QDateTime.currentDateTime().addDays(1)) # Default if parsing fails
-                self.reminder_datetime_edit.setEnabled(False)
+                self.reminder_datetime_edit.setDateTime(QDateTime.currentDateTime().addDays(1))
+                self.reminder_check.setChecked(False)
         else:
             self.reminder_datetime_edit.setDateTime(QDateTime.currentDateTime().addDays(1))
-            self.reminder_datetime_edit.setEnabled(False)
+            self.reminder_check.setChecked(False)
+        # Always let the checkbox control enabled state
+        self.reminder_datetime_edit.setEnabled(self.reminder_check.isChecked())
 
         self.reminder_check.toggled.connect(self.reminder_datetime_edit.setEnabled)
 

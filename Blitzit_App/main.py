@@ -763,12 +763,12 @@ class BlitzitApp(QMainWindow):
                     reminder_at=updated_data["reminder_at"] # Pass reminder_at
                 )
                 # If a reminder was changed/removed, it should be re-notifiable or not notified
-                if task_id in self.notified_task_ids and (updated_data["reminder_at"] is None or updated_data["reminder_at"] > datetime.now()):
-                    self.notified_task_ids.remove(task_id)
-                elif updated_data["reminder_at"] and updated_data["reminder_at"] <= datetime.now() and task_id in self.notified_task_ids:
-                    pass # Keep it in notified_task_ids if reminder is past and was already notified
-                elif task_id in self.notified_task_ids and updated_data["reminder_at"] and updated_data["reminder_at"] > datetime.now() :
-                     self.notified_task_ids.remove(task_id)
+                if task_id in self.notified_task_ids_gui and (updated_data["reminder_at"] is None or updated_data["reminder_at"] > datetime.now()):
+                    self.notified_task_ids_gui.remove(task_id)
+                elif updated_data["reminder_at"] and updated_data["reminder_at"] <= datetime.now() and task_id in self.notified_task_ids_gui:
+                    pass # Keep it in notified_task_ids_gui if reminder is past and was already notified
+                elif task_id in self.notified_task_ids_gui and updated_data["reminder_at"] and updated_data["reminder_at"] > datetime.now() :
+                     self.notified_task_ids_gui.remove(task_id)
 
 
                 self.refresh_all_views()
