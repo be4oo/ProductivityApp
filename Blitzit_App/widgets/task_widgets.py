@@ -57,8 +57,9 @@ class TaskWidget(QFrame):
                 due_label_text = task['due_date']
         due_date_label = QLabel(f"Due: {due_label_text}" if due_label_text else "")
 
+        recur_label = QLabel(task['recurrence'] or "")
         est_time_label.setObjectName("TimeEstLabel"); act_time_label.setObjectName("TimeActLabel")
-        time_layout.addWidget(est_time_label); time_layout.addStretch(); time_layout.addWidget(act_time_label); time_layout.addWidget(due_date_label)
+        time_layout.addWidget(est_time_label); time_layout.addStretch(); time_layout.addWidget(act_time_label); time_layout.addWidget(due_date_label); time_layout.addWidget(recur_label)
 
         main_layout.addLayout(time_layout)
         button_layout = QHBoxLayout(); button_layout.setContentsMargins(0, 8, 0, 0)
@@ -106,13 +107,14 @@ class AddTaskDialog(QDialog):
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"])
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"])
 
+        self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"])
         self.due_checkbox = QCheckBox("Due Date")
         self.due_date_input = QDateTimeEdit(QDateTime.currentDateTime()); self.due_date_input.setDisplayFormat("yyyy-MM-dd HH:mm"); self.due_date_input.setCalendarPopup(True); self.due_date_input.setEnabled(False)
         self.due_checkbox.stateChanged.connect(lambda: self.due_date_input.setEnabled(self.due_checkbox.isChecked()))
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input)
 
-        form_layout.addRow("Priority:", self.priority_input); form_layout.addRow(self.due_checkbox, self.due_date_input); self.layout.addLayout(form_layout)
+        form_layout.addRow("Priority:", self.priority_input); form_layout.addRow("Repeats:", self.recur_input); form_layout.addRow(self.due_checkbox, self.due_date_input); self.layout.addLayout(form_layout)
 
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
         button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
@@ -126,6 +128,7 @@ class AddTaskDialog(QDialog):
             "task_type": self.type_input.currentText(),
             "task_priority": self.priority_input.currentText(),
             "due_date": due,
+            "recurrence": self.recur_input.currentText(),
         }
 
 class EditTaskDialog(QDialog):
@@ -135,7 +138,7 @@ class EditTaskDialog(QDialog):
         self.time_input = QLineEdit(); self.time_input.setText(format_time(task_data['estimated_time']))
         self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"]); self.type_input.setCurrentText(task_data['task_type'] or "")
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data['task_priority'] or "")
-
+        self.recur_input = QComboBox(); self.recur_input.addItems(["", "Daily", "Weekly", "Monthly"]); self.recur_input.setCurrentText(task_data.get('recurrence') or "")
 
         self.due_checkbox = QCheckBox("Due Date")
         self.due_date_input = QDateTimeEdit(QDateTime.currentDateTime()); self.due_date_input.setDisplayFormat("yyyy-MM-dd HH:mm"); self.due_date_input.setCalendarPopup(True); self.due_date_input.setEnabled(False)
@@ -148,7 +151,7 @@ class EditTaskDialog(QDialog):
         self.due_checkbox.stateChanged.connect(lambda: self.due_date_input.setEnabled(self.due_checkbox.isChecked()))
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
 
-        form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input); form_layout.addRow(self.due_checkbox, self.due_date_input)
+        form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input); form_layout.addRow("Repeats:", self.recur_input); form_layout.addRow(self.due_checkbox, self.due_date_input)
 
         self.layout.addLayout(form_layout)
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
@@ -163,5 +166,6 @@ class EditTaskDialog(QDialog):
             "task_type": self.type_input.currentText(),
             "task_priority": self.priority_input.currentText(),
             "due_date": due,
+            "recurrence": self.recur_input.currentText(),
         }
 
