@@ -1,12 +1,7 @@
 # Blitzit_App/widgets/task_widgets.py
 import re
-<<<<<<< HEAD
 from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QTextEdit, QComboBox, QDialogButtonBox, QPushButton, QFrame, QLabel, QDateTimeEdit, QCheckBox, QSpinBox
 from PyQt6.QtCore import Qt, pyqtSignal, QMimeData, QDateTime
-=======
-from PyQt6.QtWidgets import QDialog, QWidget, QVBoxLayout, QHBoxLayout, QFormLayout, QLineEdit, QTextEdit, QComboBox, QDialogButtonBox, QPushButton, QFrame, QLabel
->>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
-from PyQt6.QtCore import Qt, pyqtSignal, QMimeData
 from PyQt6.QtGui import QDrag, QPixmap
 import qtawesome as qta
 
@@ -49,7 +44,6 @@ class TaskWidget(QFrame):
             priority_label = QLabel(task['task_priority'])
             priority_label.setObjectName(f"Priority{task['task_priority']}")
             top_row_layout.addWidget(priority_label)
-<<<<<<< HEAD
         if task['due_date']:
             due_date_obj = QDateTime.fromString(task['due_date'], Qt.DateFormat.ISODate)
             now = QDateTime.currentDateTime()
@@ -77,25 +71,11 @@ class TaskWidget(QFrame):
         time_layout.addWidget(est_time_label)
         time_layout.addStretch()
         time_layout.addWidget(act_time_label)
-=======
-        if task['task_type']:
-            type_label = QLabel(task['task_type']); type_label.setObjectName(f"Type{task['task_type']}")
-            top_row_layout.addWidget(type_label)
-        main_layout.addLayout(top_row_layout)
-        notes_label = QLabel(task['notes']); notes_label.setObjectName("TaskNotes"); notes_label.setWordWrap(True)
-        main_layout.addWidget(notes_label)
-        time_layout = QHBoxLayout(); time_layout.setContentsMargins(0, 8, 0, 0)
-        est_time_str = format_time(task['estimated_time']); est_time_label = QLabel(f"Est: {est_time_str}")
-        act_time_str = format_time(task['actual_time']); act_time_label = QLabel(f"Actual: {act_time_str}")
-        est_time_label.setObjectName("TimeEstLabel"); act_time_label.setObjectName("TimeActLabel")
-        time_layout.addWidget(est_time_label); time_layout.addStretch(); time_layout.addWidget(act_time_label)
->>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
         main_layout.addLayout(time_layout)
         button_layout = QHBoxLayout()
         button_layout.setContentsMargins(0, 8, 0, 0)
         if self.column_name == "Done":
             self.setProperty("class", "done-task")
-<<<<<<< HEAD
             reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open")
             delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
             reopen_btn.setObjectName("TaskActionButton")
@@ -105,12 +85,6 @@ class TaskWidget(QFrame):
             button_layout.addStretch()
             button_layout.addWidget(reopen_btn)
             button_layout.addWidget(delete_btn)
-=======
-            reopen_btn = QPushButton(qta.icon('fa5s.undo-alt'), " Re-open"); delete_btn = QPushButton(qta.icon('fa5s.trash-alt'), "")
-            reopen_btn.setObjectName("TaskActionButton"); delete_btn.setObjectName("TaskActionButton")
-            reopen_btn.clicked.connect(lambda: self.task_reopened.emit(self.task_id)); delete_btn.clicked.connect(lambda: self.task_deleted.emit(self.task_id))
-            button_layout.addStretch(); button_layout.addWidget(reopen_btn); button_layout.addWidget(delete_btn)
->>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
         else:
             focus_btn = QPushButton(qta.icon('fa5s.play-circle'), "")
             edit_btn = QPushButton(qta.icon('fa5s.pencil-alt'), "")
@@ -137,7 +111,6 @@ class TaskWidget(QFrame):
 # AddTaskDialog and EditTaskDialog classes are unchanged
 class AddTaskDialog(QDialog):
     def __init__(self, parent=None):
-<<<<<<< HEAD
         super().__init__(parent)
         self.setWindowTitle("Add New Task")
         self.layout = QVBoxLayout(self)
@@ -177,20 +150,6 @@ class AddTaskDialog(QDialog):
         form_layout.addRow("Priority:", self.priority_input)
         form_layout.addRow("Due Date:", self.due_date_input)
         form_layout.addRow(self.reminder_checkbox, self.reminder_offset_input)
-
-=======
-        super().__init__(parent); self.setWindowTitle("Add New Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
-        self.title_input = QLineEdit(); self.notes_input = QTextEdit(); self.notes_input.setFixedHeight(80)
-        self.time_input = QLineEdit(); self.time_input.setPlaceholderText("e.g., 1h 30m or 45m")
-        self.type_input = QComboBox(); self.type_input.addItems(["", "Work", "Personal", "Other"])
-        self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"])
-        form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
-        form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input)
-        form_layout.addRow("Priority:", self.priority_input); self.layout.addLayout(form_layout)
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-        button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
-    def get_task_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
 class EditTaskDialog(QDialog):
     def __init__(self, task_data, parent=None):
         super().__init__(parent); self.setWindowTitle("Edit Task"); self.layout = QVBoxLayout(self); form_layout = QFormLayout()
@@ -200,11 +159,10 @@ class EditTaskDialog(QDialog):
         self.priority_input = QComboBox(); self.priority_input.addItems(["", "Low", "Medium", "High"]); self.priority_input.setCurrentText(task_data['task_priority'] or "")
         form_layout.addRow("Title:", self.title_input); form_layout.addRow("Notes:", self.notes_input)
         form_layout.addRow("Est. Time:", self.time_input); form_layout.addRow("Type:", self.type_input); form_layout.addRow("Priority:", self.priority_input)
->>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
+
         self.layout.addLayout(form_layout)
 
         button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Ok | QDialogButtonBox.StandardButton.Cancel)
-<<<<<<< HEAD
         button_box.accepted.connect(self.accept)
         button_box.rejected.connect(self.reject)
         self.layout.addWidget(button_box)
@@ -292,8 +250,3 @@ class EditTaskDialog(QDialog):
             "reminder_enabled": self.reminder_checkbox.isChecked(),
             "reminder_offset": self.reminder_offset_input.value()
         }
-=======
-        button_box.accepted.connect(self.accept); button_box.rejected.connect(self.reject); self.layout.addWidget(button_box)
-    def get_updated_data(self):
-        return {"title": self.title_input.text(), "notes": self.notes_input.toPlainText(), "estimated_time": parse_time_string_to_minutes(self.time_input.text()), "task_type": self.type_input.currentText(), "task_priority": self.priority_input.currentText()}
->>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
