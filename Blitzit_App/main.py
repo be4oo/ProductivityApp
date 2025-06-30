@@ -3,7 +3,7 @@ import sys, os, json
 from PyQt6.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, 
                              QPushButton, QFrame, QListWidget, QListWidgetItem, QInputDialog, 
                              QMessageBox, QSpacerItem, QSizePolicy, QStackedWidget, QMenu, QColorDialog)
-from PyQt6.QtCore import Qt, QTimer, QPropertyAnimation, QEasingCurve
+from PyQt6.QtCore import Qt, QTimer
 from PyQt6.QtGui import QIcon, QAction, QFontDatabase # <--- Import QFontDatabase
 import qtawesome as qta
 
@@ -60,41 +60,42 @@ class BlitzitApp(QMainWindow):
             tasks = database.get_tasks_for_project(self.current_project_id)
         notification_window = timedelta(minutes=1) # Only notify for tasks due in the last minute
         for task in tasks:
-            task_dict = dict(task)
-            if not task_dict.get('reminder_enabled', False):
+            if not task.get('reminder_enabled', False):
                 continue
-            due_str = task_dict.get('due_date')
+            due_str = task.get('due_date')
             if not due_str:
                 continue
             try:
                 due_dt = datetime.fromisoformat(due_str)
             except Exception:
                 continue
-            offset = int(task_dict.get('reminder_offset', 0))
+            offset = int(task.get('reminder_offset', 0))
             notify_time = due_dt
             if offset > 0:
                 notify_time = due_dt - timedelta(minutes=offset)
             # Only notify if within the recent window and not already notified
-            if notify_time <= now and task_dict['id'] not in self._notified_task_ids:
+            if notify_time <= now and task['id'] not in self._notified_task_ids:
                 from notifications import show_notification
                 time_diff = now - notify_time
                 if time_diff.total_seconds() < 60: # If due in the last minute
-                    message = f"Task '{task_dict['title']}' is due now!"
+                    message = f"Task '{task['title']}' is due now!"
                 else:
                     # Format the time difference into a human-readable string
                     hours, remainder = divmod(time_diff.total_seconds(), 3600)
                     minutes, _ = divmod(remainder, 60)
                     if hours > 0:
-                        message = f"Task '{task_dict['title']}' was due {int(hours)}h {int(minutes)}m ago."
+                        message = f"Task '{task['title']}' was due {int(hours)}h {int(minutes)}m ago."
                     else:
-                        message = f"Task '{task_dict['title']}' was due {int(minutes)}m ago."
-                show_notification(f"Task Due: {task_dict['title']}", message)
-                self._notified_task_ids.add(task_dict['id'])
+                        message = f"Task '{task['title']}' was due {int(minutes)}m ago."
+                show_notification(f"Task Due: {task['title']}", message)
+                self._notified_task_ids.add(task['id'])
     def __init__(self, parent_app=None):
         super().__init__()
         self.parent_app = parent_app
+        self.setWindowFlags(Qt.WindowType.FramelessWindowHint)
         self.setWindowTitle("Blitzit Productivity Hub")
         self.setMinimumSize(1200, 750)
+        self.old_pos = None
         
         # --- App State ---
         self.column_order = ["Backlog", "This Week", "Today"]
@@ -316,23 +317,9 @@ class BlitzitApp(QMainWindow):
         elif self.current_project_id is not None: tasks_to_display = database.get_tasks_for_project(self.current_project_id); self.add_task_btn.setEnabled(True)
         self.clear_all_columns(); self.matrix_view.clear_all_quadrants()
         for task in tasks_to_display:
-            task_widget = TaskWidget(task)
-            task_widget.task_completed.connect(self.complete_task)
-            task_widget.task_deleted.connect(self.delete_task)
-            task_widget.task_edit_requested.connect(self.open_edit_task_dialog)
-            task_widget.focus_requested.connect(self.start_focus_mode)
-            task_widget.task_reopened.connect(self.reopen_task)
-
-            if task["column"] in self.columns:
-                self.columns[task["column"]].tasks_layout.addWidget(task_widget)
-
-                # Fade-in animation for new tasks
-                animation = QPropertyAnimation(task_widget, b"windowOpacity")
-                animation.setDuration(300) # milliseconds
-                animation.setStartValue(0.0)
-                animation.setEndValue(1.0)
-                animation.setEasingCurve(QEasingCurve.OutQuad)
-                animation.start()
+            task_widget = TaskWidget(task); task_widget.task_completed.connect(self.complete_task); task_widget.task_deleted.connect(self.delete_task)
+            task_widget.task_edit_requested.connect(self.open_edit_task_dialog); task_widget.focus_requested.connect(self.start_focus_mode); task_widget.task_reopened.connect(self.reopen_task)
+            if task["column"] in self.columns: self.columns[task["column"]].tasks_layout.addWidget(task_widget)
         active_tasks = [t for t in tasks_to_display if t['column'] != 'Done']
         self.matrix_view.populate_matrix(active_tasks)
 
@@ -503,6 +490,20 @@ class BlitzitApp(QMainWindow):
     def resizeEvent(self, event):
         super().resizeEvent(event)
         self.celebration.setGeometry(self.rect())
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.old_pos = event.globalPosition().toPoint()
+
+    def mouseReleaseEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self.old_pos = None
+
+    def mouseMoveEvent(self, event):
+        if not self.old_pos: return
+        delta = event.globalPosition().toPoint() - self.old_pos
+        self.move(self.pos() + delta)
+        self.old_pos = event.globalPosition().toPoint()
 
 
 if __name__ == "__main__":

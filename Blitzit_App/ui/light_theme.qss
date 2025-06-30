@@ -3,21 +3,21 @@
     font-family: "Inter"; 
     color: #333333; /* Darker text for better readability on light backgrounds */
 }
-QMainWindow, QDialog { background-color: #f0f2f5; } /* Light gray background */
-QFrame { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px; } /* White frame, more rounded */
+QMainWindow, QDialog { background-color: #e6f2ff; } /* Light blue background */
+QFrame { background-color: #ffffff; border: 1px solid #cce0ff; border-radius: 10px; } /* White frame, light blue border */
 #ColumnFrame, #QuadrantFrame { background-color: transparent; border: none; }
-QStackedWidget > QWidget { background-color: #f0f2f5; border: none; }
+QStackedWidget > QWidget { background-color: #e6f2ff; border: none; }
 #ColumnTitle, #QuadrantTitle {
     color: #333333; font-size: 16pt; font-weight: 700; padding: 8px 10px; margin-bottom: 15px; background-color: transparent; border: none; /* Bolder titles */
 }
 QScrollArea { border: none; background-color: transparent; }
-QScrollBar:vertical { border: none; background: #e0e0e0; width: 12px; } /* Wider scrollbar, new color */
-QScrollBar::handle:vertical { background: #007bff; min-height: 30px; border-radius: 6px; } /* Vibrant scroll handle */
+QScrollBar:vertical { border: none; background: #cce0ff; width: 12px; } /* Light blue scrollbar */
+QScrollBar::handle:vertical { background: #007bff; min-height: 30px; border-radius: 6px; } /* Vibrant blue scroll handle */
 QPushButton {
-    background-color: #e9ecef; color: #333333; border: 1px solid #d0d7de; padding: 12px 20px; border-radius: 8px; font-size: 11pt; font-weight: 600;
+    background-color: #e0efff; color: #333333; border: 1px solid #cce0ff; padding: 12px 20px; border-radius: 8px; font-size: 11pt; font-weight: 600;
 }
-QPushButton:hover { background-color: #dee2e6; border-color: #c8cbd0; }
-QPushButton:pressed { background-color: #ced4da; }
+QPushButton:hover { background-color: #d0e8ff; border-color: #aaccff; }
+QPushButton:pressed { background-color: #c0e0ff; }
 #AddTaskButton { 
     background-color: #007bff; color: #ffffff; font-weight: 700; border: 1px solid rgba(0,0,0,0.1); 
 }
@@ -32,7 +32,7 @@ QPushButton:pressed { background-color: #ced4da; }
     background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #0062cc, stop:1 #00b0e0);
 }
 #TaskWidget { 
-    background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 10px; margin-bottom: 12px; padding: 18px; 
+    background-color: #ffffff; border: 1px solid #cce0ff; border-radius: 10px; margin-bottom: 12px; padding: 18px; 
 }
 #TaskWidget:hover { 
     border-color: #007bff; 
@@ -40,8 +40,8 @@ QPushButton:pressed { background-color: #ced4da; }
 #TaskTitle { color: #333333; font-weight: 700; font-size: 12pt; }
 #TaskNotes { color: #666666; font-size: 10pt; }
 #TaskActionButton { background-color: transparent; border: none; padding: 6px; border-radius: 6px; color: #666666; }
-#TaskActionButton:hover { background-color: #e9ecef; color: #333333; }
-#TaskWidget[class="done-task"] { background-color: #e9ecef; border-color: transparent; opacity: 0.6; }
+#TaskActionButton:hover { background-color: #e0efff; color: #333333; }
+#TaskWidget[class="done-task"] { background-color: #e6f2ff; border-color: transparent; opacity: 0.6; }
 #TaskWidget[class="done-task"] #TaskTitle { text-decoration: line-through; color: #999999; }
 #TimeEstLabel, #TimeActLabel { color: #888888; font-size: 10pt; font-weight: 600; background-color: transparent; border: none; }
 #PriorityLow { background-color: #28a745; color: white; } /* Green */
@@ -50,17 +50,17 @@ QPushButton:pressed { background-color: #ced4da; }
 #TypeWork { background-color: #6f42c1; color: white; } /* Purple */
 #TypePersonal { background-color: #20c997; color: white; } /* Teal */
 #TypeOther { background-color: #6c757d; color: white; } /* Gray */
-QListWidget { border: 1px solid #e0e0e0; border-radius: 10px; padding: 8px; background-color: #ffffff; }
+QListWidget { border: 1px solid #cce0ff; border-radius: 10px; padding: 8px; background-color: #ffffff; }
 QListWidget::item { padding: 12px; border-radius: 8px; }
 QListWidget::item:selected { background-color: #007bff; color: white; }
-QListWidget::item:hover { background-color: #e9ecef; }
-QMenu { background-color: #ffffff; border: 1px solid #e0e0e0; border-radius: 8px; }
+QListWidget::item:hover { background-color: #e0efff; }
+QMenu { background-color: #ffffff; border: 1px solid #cce0ff; border-radius: 8px; }
 QMenu::item:selected { background-color: #007bff; }
 
 /* General input field styling */
 QLineEdit, QTextEdit, QComboBox, QDateTimeEdit, QSpinBox {
     background-color: #ffffff;
-    border: 1px solid #d0d7de;
+    border: 1px solid #cce0ff;
     border-radius: 8px;
     padding: 10px 12px;
     color: #333333;
@@ -69,7 +69,7 @@ QLineEdit, QTextEdit, QComboBox, QDateTimeEdit, QSpinBox {
 
 QLineEdit:focus, QTextEdit:focus, QComboBox:focus, QDateTimeEdit:focus, QSpinBox:focus {
     border: 2px solid #007bff; /* Thicker focus border */
-    background-color: #f8f9fa;
+    background-color: #f0f8ff;
 }
 
 QComboBox::drop-down {
@@ -85,7 +85,7 @@ QComboBox::down-arrow {
 QCheckBox::indicator {
     width: 18px;
     height: 18px;
-    border: 2px solid #d0d7de;
+    border: 2px solid #cce0ff;
     border-radius: 4px;
     background-color: #ffffff;
 }
@@ -104,7 +104,7 @@ QDateTimeEdit::drop-down {
 }
 
 QSpinBox::up-button, QSpinBox::down-button {
-    border: 1px solid #d0d7de;
+    border: 1px solid #cce0ff;
     background-color: #ffffff;
     border-radius: 4px;
     width: 24px; /* Larger buttons */
@@ -127,7 +127,7 @@ QSpinBox::down-arrow {
 QToolTip {
     color: #333333;
     background-color: #ffffff;
-    border: 1px solid #e0e0e0;
+    border: 1px solid #cce0ff;
     border-radius: 6px;
     padding: 8px;
     font-size: 10pt;
