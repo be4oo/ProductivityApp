@@ -435,6 +435,7 @@ class BlitzitApp(QMainWindow):
         database.update_task_column(task_id, "Done"); self.celebration.show_celebration()
 
     def open_add_task_dialog(self):
+<<<<<<< HEAD
         if self.current_project_id is None or self.current_project_id == -1: 
             QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task.")
             return
@@ -455,6 +456,13 @@ class BlitzitApp(QMainWindow):
                     reminder_offset=task_data['reminder_offset']
                 )
                 self.refresh_all_views()
+=======
+        if self.current_project_id is None or self.current_project_id == -1: QMessageBox.warning(self, "Cannot Add Task", "Please select a specific project to add a new task."); return
+        dialog = AddTaskDialog(self);
+        if dialog.exec():
+            task_data = dialog.get_task_data();
+            if task_data["title"]: database.add_task(title=task_data["title"], notes=task_data["notes"], project_id=self.current_project_id, column="Backlog", est_time=task_data["estimated_time"], task_type=task_data["task_type"], task_priority=task_data["task_priority"]); self.refresh_all_views()
+>>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
     
     def open_edit_task_dialog(self, task_id):
         task_data_source = database.get_tasks_for_project(self.current_project_id) if self.current_project_id != -1 else database.get_all_tasks_from_all_projects()
@@ -466,6 +474,7 @@ class BlitzitApp(QMainWindow):
         dialog = EditTaskDialog(task_data_dict, self)
         if dialog.exec():
             updated_data = dialog.get_updated_data()
+<<<<<<< HEAD
             if updated_data["title"]:
                 database.update_task_details(
                     task_id, 
@@ -479,6 +488,9 @@ class BlitzitApp(QMainWindow):
                     updated_data['reminder_offset']
                 )
                 self.refresh_all_views()
+=======
+            if updated_data["title"]: database.update_task_details(task_id, updated_data["title"], updated_data["notes"], updated_data["estimated_time"], updated_data["task_type"], updated_data["task_priority"]); self.refresh_all_views()
+>>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
     
     def open_reporting_dialog(self):
         all_tasks_stats = database.get_report_stats(); dialog = ReportingDialog(all_tasks_stats, self); dialog.exec()
@@ -491,6 +503,7 @@ class BlitzitApp(QMainWindow):
         super().resizeEvent(event)
         self.celebration.setGeometry(self.rect())
 
+<<<<<<< HEAD
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.old_pos = event.globalPosition().toPoint()
@@ -505,6 +518,8 @@ class BlitzitApp(QMainWindow):
         self.move(self.pos() + delta)
         self.old_pos = event.globalPosition().toPoint()
 
+=======
+>>>>>>> 9066175c7e5ee83cd2703a55e1d413a5931f37e9
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
