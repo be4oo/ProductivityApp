@@ -1,0 +1,9 @@
+<odoo>
+    <record id="action_send_sms_wizard" model="ir.actions.act_window">
+        <field name="name">Send SMS</field>
+        <field name="res_model">send.sms.wizard</field>
+        <field name="view_mode">form</field>
+        <field name="target">new</field>
+    </record>
+</odoo>
+

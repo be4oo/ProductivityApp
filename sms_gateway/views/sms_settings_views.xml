@@ -1,0 +1,21 @@
+<odoo>
+    <record id="sms_gateway_settings" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.sms.gateway</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base.view_res_config_settings"/>
+        <field name="arch" type="xml">
+            <xpath expr="//sheet/notebook" position="inside">
+                <page string="SMS Gateway">
+                    <group>
+                        <field name="sms_provider"/>
+                        <field name="sms_username"/>
+                        <field name="sms_password" password="True"/>
+                        <field name="sms_sender"/>
+                        <field name="sms_api_url"/>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+</odoo>
+

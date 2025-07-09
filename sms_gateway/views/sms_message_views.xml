@@ -1,0 +1,47 @@
+<odoo>
+    <record id="view_sms_message_tree" model="ir.ui.view">
+        <field name="name">sms.message.tree</field>
+        <field name="model">sms.message</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="create_date"/>
+                <field name="partner_id"/>
+                <field name="mobile"/>
+                <field name="body"/>
+                <field name="state"/>
+                <field name="error"/>
+                <field name="cost"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_sms_message_form" model="ir.ui.view">
+        <field name="name">sms.message.form</field>
+        <field name="model">sms.message</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="partner_id"/>
+                        <field name="mobile"/>
+                        <field name="body"/>
+                        <field name="state"/>
+                        <field name="error"/>
+                        <field name="cost"/>
+                        <field name="date_sent"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="action_sms_message" model="ir.actions.act_window">
+        <field name="name">SMS Messages</field>
+        <field name="res_model">sms.message</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+
+    <menuitem id="menu_sms_root" name="SMS" sequence="10"/>
+    <menuitem id="menu_sms_messages" name="Messages" parent="menu_sms_root" action="action_sms_message"/>
+</odoo>
+

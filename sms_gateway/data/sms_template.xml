@@ -1,0 +1,7 @@
+<odoo>
+    <record id="sms_template_basic" model="sms.template">
+        <field name="name">Basic SMS Template</field>
+        <field name="body">Hello, this is a test message.</field>
+    </record>
+</odoo>
+
